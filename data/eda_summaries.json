@@ -1,0 +1,74 @@
+[
+  {
+    "id": "eda_overview",
+    "text": "Dataset overview: The dataset contains 60 monthly electricity bill records spanning from January 2020 to December 2024. Each record includes the year-month, monthly energy consumption in kWh, and total bill price in Philippine Peso (₱). Overall kWh ranges from 127.4 to 434.0 kWh/month (mean 257.8, std 93.5). Overall price ranges from ₱43.38 to ₱124.11/month (mean ₱75.95, std ₱23.85)."
+  },
+  {
+    "id": "eda_annual_2020",
+    "text": "Annual summary for 2020: Total consumption was 3000.1 kWh (avg 250.0 kWh/month) and total spend was ₱854.80 (avg ₱71.23/month). Peak month was January 2020 at 385.1 kWh (₱103.21). Lowest month was August 2020 at 140.5 kWh (₱43.38)."
+  },
+  {
+    "id": "eda_annual_2021",
+    "text": "Annual summary for 2021: Total consumption was 3081.6 kWh (avg 256.8 kWh/month) and total spend was ₱884.74 (avg ₱73.73/month). Peak month was January 2021 at 412.9 kWh (₱111.51). Lowest month was June 2021 at 144.3 kWh (₱48.47)."
+  },
+  {
+    "id": "eda_annual_2022",
+    "text": "Annual summary for 2022: Total consumption was 3049.0 kWh (avg 254.1 kWh/month) and total spend was ₱917.14 (avg ₱76.43/month). Peak month was December 2022 at 387.9 kWh (₱118.43). Lowest month was August 2022 at 137.2 kWh (₱44.77)."
+  },
+  {
+    "id": "eda_annual_2023",
+    "text": "Annual summary for 2023: Total consumption was 3133.2 kWh (avg 261.1 kWh/month) and total spend was ₱929.06 (avg ₱77.42/month). Peak month was January 2023 at 415.2 kWh (₱114.38). Lowest month was June 2023 at 138.6 kWh (₱44.77)."
+  },
+  {
+    "id": "eda_annual_2024",
+    "text": "Annual summary for 2024: Total consumption was 3205.8 kWh (avg 267.1 kWh/month) and total spend was ₱971.07 (avg ₱80.92/month). Peak month was January 2024 at 434.0 kWh (₱124.11). Lowest month was July 2024 at 127.4 kWh (₱45.87)."
+  },
+  {
+    "id": "eda_yoy_2020_2021",
+    "text": "Year-over-year change from 2020 to 2021: Annual kWh consumption changed by +2.7% (from 3000.1 to 3081.6 kWh). Annual spend changed by +3.5% (from ₱854.80 to ₱884.74)."
+  },
+  {
+    "id": "eda_yoy_2021_2022",
+    "text": "Year-over-year change from 2021 to 2022: Annual kWh consumption changed by -1.1% (from 3081.6 to 3049.0 kWh). Annual spend changed by +3.7% (from ₱884.74 to ₱917.14)."
+  },
+  {
+    "id": "eda_yoy_2022_2023",
+    "text": "Year-over-year change from 2022 to 2023: Annual kWh consumption changed by +2.8% (from 3049.0 to 3133.2 kWh). Annual spend changed by +1.3% (from ₱917.14 to ₱929.06)."
+  },
+  {
+    "id": "eda_yoy_2023_2024",
+    "text": "Year-over-year change from 2023 to 2024: Annual kWh consumption changed by +2.3% (from 3133.2 to 3205.8 kWh). Annual spend changed by +4.5% (from ₱929.06 to ₱971.07)."
+  },
+  {
+    "id": "eda_seasonality",
+    "text": "Monthly seasonality profile (averaged across all years): January: avg 405.7 kWh, avg ₱111.38; February: avg 369.5 kWh, avg ₱104.04; March: avg 321.8 kWh, avg ₱91.47; April: avg 244.8 kWh, avg ₱70.76; May: avg 186.1 kWh, avg ₱59.10; June: avg 152.0 kWh, avg ₱50.51; July: avg 145.2 kWh, avg ₱47.67; August: avg 150.8 kWh, avg ₱48.01; September: avg 190.2 kWh, avg ₱58.84; October: avg 244.3 kWh, avg ₱73.01; November: avg 302.4 kWh, avg ₱87.02; December: avg 381.1 kWh, avg ₱109.57. The highest average month is January and the lowest is July. The overall monthly average is 257.8 kWh."
+  },
+  {
+    "id": "eda_trend",
+    "text": "Long-term trend: A linear regression over all 60 months shows that kWh consumption is increasing at approximately 0.06 kWh per month on average. Bill price is increasing at approximately ₱0.13 per month on average. This suggests a gradual upward drift in both consumption and cost over time."
+  },
+  {
+    "id": "eda_extremes_kwh",
+    "text": "Top 5 highest consumption months: January 2024 (434.0 kWh), January 2023 (415.2 kWh), February 2024 (415.0 kWh), January 2021 (412.9 kWh), December 2023 (399.2 kWh). Top 5 lowest consumption months: July 2024 (127.4 kWh), August 2022 (137.2 kWh), June 2023 (138.6 kWh), August 2020 (140.5 kWh), July 2023 (142.1 kWh). High consumption months are consistently in winter (Dec–Feb) and low months in summer (Jun–Aug)."
+  },
+  {
+    "id": "eda_extremes_price",
+    "text": "Top 5 highest bill months: January 2024 (₱124.11), December 2022 (₱118.43), February 2024 (₱117.61), December 2023 (₱114.89), January 2023 (₱114.38). Top 5 lowest bill months: August 2020 (₱43.38), June 2023 (₱44.77), August 2022 (₱44.77), July 2021 (₱45.86), July 2024 (₱45.87)."
+  },
+  {
+    "id": "eda_unit_rate",
+    "text": "Unit rate analysis (price ÷ kWh): Overall mean ₱0.3008/kWh, ranging from ₱0.2614/kWh (March 2020) to ₱0.3600/kWh (July 2024). Annual average unit rates: 2020: ₱0.2915/kWh; 2021: ₱0.2932/kWh; 2022: ₱0.3048/kWh; 2023: ₱0.3036/kWh; 2024: ₱0.3109/kWh. The effective unit rate has been rising over the period."
+  },
+  {
+    "id": "eda_quarterly",
+    "text": "Quarterly averages (all years combined): Q1: avg 365.7 kWh, avg ₱102.29; Q2: avg 194.3 kWh, avg ₱60.12; Q3: avg 162.1 kWh, avg ₱51.51; Q4: avg 309.3 kWh, avg ₱89.86. Q1 (Jan–Mar) and Q4 (Oct–Dec) are the high-consumption quarters; Q2 (Apr–Jun) and Q3 (Jul–Sep) are the low-consumption quarters."
+  },
+  {
+    "id": "eda_correlation",
+    "text": "Correlation between kWh consumption and bill price: Pearson r = 0.973. This strong positive correlation confirms that higher consumption months are reliably the most expensive months."
+  },
+  {
+    "id": "eda_monthly_records",
+    "text": "All-time kWh records per calendar month: January: highest 434.0 kWh (2024), lowest 381.4 kWh (2022); February: highest 415.0 kWh (2024), lowest 353.9 kWh (2022); March: highest 347.1 kWh (2024), lowest 302.2 kWh (2020); April: highest 252.2 kWh (2021), lowest 234.2 kWh (2022); May: highest 201.7 kWh (2022), lowest 160.9 kWh (2021); June: highest 165.1 kWh (2024), lowest 138.6 kWh (2023); July: highest 158.1 kWh (2022), lowest 127.4 kWh (2024); August: highest 162.3 kWh (2023), lowest 137.2 kWh (2022); September: highest 199.3 kWh (2022), lowest 185.1 kWh (2024); October: highest 265.3 kWh (2024), lowest 231.6 kWh (2020); November: highest 308.3 kWh (2021), lowest 294.2 kWh (2022); December: highest 399.2 kWh (2023), lowest 360.6 kWh (2020)."
+  }
+]
