@@ -53,5 +53,6 @@ desktop.ini
 # ── Secrets / env ─────────────────────────────────────────────────────────────
 .env
 .env.*
+.env.local
 *.key
 *.pem

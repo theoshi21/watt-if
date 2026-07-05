@@ -256,6 +256,8 @@ python data/ingest_eda.py   # ingests summaries into ChromaDB
 
 ## 9. Install as a PWA (optional)
 
+### On the same machine
+
 ```bash
 # In the frontend/ directory
 npm run build
@@ -263,6 +265,50 @@ npm run preview
 ```
 
 Open **http://localhost:4173**. Click the install icon in the browser address bar to install as a standalone desktop app.
+
+### On a phone (same Wi-Fi network)
+
+This lets you install WATT-IF on your phone while the backend runs on your PC.
+
+**Step 1 — Find your PC's local IP**
+
+Run in PowerShell:
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.)' } | Select-Object IPAddress
+```
+You'll get something like `192.168.1.x`.
+
+**Step 2 — Create `frontend/.env.local`**
+
+```
+VITE_API_BASE=http://192.168.1.x:8000
+```
+
+Replace `192.168.1.x` with your actual IP.
+
+**Step 3 — Start the backend on the network**
+
+```bash
+# From project root
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+**Step 4 — Build and serve the frontend**
+
+```bash
+# From frontend/
+npm run build
+npm run preview -- --host 0.0.0.0 --port 4173
+```
+
+**Step 5 — Open on your phone**
+
+Make sure your phone is on the same Wi-Fi. Open `http://192.168.1.x:4173` in your browser.
+
+- **Android (Chrome):** tap the three-dot menu → "Add to Home Screen"
+- **iOS (Safari):** tap the Share icon → "Add to Home Screen"
+
+> **Note:** iOS Safari requires HTTPS for PWA install. On Android Chrome, HTTP over a local network works fine. If you need iOS support, you'd need to set up a local SSL certificate with a tool like `mkcert`.
 
 ---
 

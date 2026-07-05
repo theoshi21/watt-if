@@ -456,8 +456,13 @@ export function DataEntryPage() {
       <TrainModelPanel />
 
       {/* ── Entry History ────────────────────────────────────────────────── */}
-      <section className="card" aria-labelledby="history-hd">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+      <section
+        className="card"
+        aria-labelledby="history-hd"
+        style={{ padding: 0, overflow: 'hidden' }}
+      >
+        {/* Header — padded normally */}
+        <div style={{ padding: '1.25rem 1.25rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2 id="history-hd" style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 600 }}>
             Entry History
             {rows.length > 0 && (
@@ -469,10 +474,12 @@ export function DataEntryPage() {
           </span>
         </div>
 
-        {fetchErr && <p role="alert" style={{ ...errorText, marginBottom: '0.75rem' }}>{fetchErr}</p>}
+        <div style={{ padding: '0 1.25rem' }}>
+          {fetchErr && <p role="alert" style={{ ...errorText, marginBottom: '0.75rem' }}>{fetchErr}</p>}
+        </div>
 
         {rows.length === 0 ? (
-          <p style={{ ...meta, margin: 0 }}>No entries recorded yet.</p>
+          <p style={{ ...meta, margin: 0, padding: '0 1.25rem 1.25rem' }}>No entries recorded yet.</p>
         ) : (
           <>
           {/* Delete confirm dialog — rendered as overlay, not inline row */}
@@ -487,6 +494,7 @@ export function DataEntryPage() {
               />
             )
           })()}
+          {/* Table scrolls horizontally — bleeds to card edges so no double scrollbar */}
           <div style={{ overflowX: 'auto', width: '100%' }}>
             <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', fontFamily: 'var(--font-sans)', minWidth: '900px' }}>
               <colgroup>
@@ -574,7 +582,7 @@ export function DataEntryPage() {
             const totalPages = Math.ceil(rows.length / PAGE_SIZE)
             if (totalPages <= 1) return null
             return (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ padding: '0.75rem 1.25rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <span style={{ ...meta, fontSize: '0.8rem' }}>
                   Page {page} of {totalPages} · {rows.length} entries
                 </span>

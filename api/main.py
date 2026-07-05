@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 OLLAMA_HEALTH_URL = "http://localhost:11434"
 PWA_ORIGIN = "http://localhost:5173"
+PWA_ORIGIN_NETWORK = f"http://192.168.254.108:4173"  # production preview on LAN
 
 _HORIZON_LABELS: dict[int, str] = {1: "1m", 3: "3m", 6: "6m", 9: "9m", 12: "12m"}
 
@@ -131,7 +132,7 @@ async def warmup_ollama() -> None:
 # ── CORS (Req 7.6) ────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[PWA_ORIGIN],
+    allow_origins=[PWA_ORIGIN, PWA_ORIGIN_NETWORK],
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
