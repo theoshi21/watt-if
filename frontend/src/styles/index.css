@@ -1,0 +1,273 @@
+/* ── Global reset ─────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  background: var(--color-page-bg);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* ── Input / select / textarea baseline ──────────────────── */
+input,
+select,
+textarea {
+  border-color: var(--color-input-border);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: -1px;
+  border-color: var(--color-accent-primary);
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 1.25rem;
+}
+
+/* ── Primary button ───────────────────────────────────────── */
+.btn-primary {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-card);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-accent-hover);
+  outline-offset: 2px;
+}
+
+.btn-primary:disabled {
+  background: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* ── Secondary / outlined button ─────────────────────────── */
+.btn-secondary {
+  background: transparent;
+  color: var(--color-accent-primary);
+  border: 1px solid var(--color-accent-primary);
+  border-radius: var(--radius-card);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+}
+
+.btn-secondary:disabled {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* ── Danger / outlined button (red) ──────────────────────── */
+.btn-danger {
+  background: transparent;
+  color: var(--color-red);
+  border: 1px solid var(--color-red);
+  border-radius: var(--radius-card);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-red);
+  color: #fff;
+}
+
+.btn-danger:disabled {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* ── StatCard grid ────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 767px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 479px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── App shell ────────────────────────────────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.app-shell__sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 220px;
+  height: 100vh;
+  background: var(--color-sidebar-bg);
+  box-shadow: var(--shadow-sidebar);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.app-shell__main {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.app-shell__overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.app-shell__overlay--visible {
+  display: block;
+}
+
+/* ── Mobile layout (< 768px) ──────────────────────────────── */
+@media (max-width: 767px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell__sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 200;
+  }
+
+  .app-shell__sidebar--open {
+    transform: translateX(0);
+  }
+
+  .app-shell__main {
+    grid-column: 1;
+    width: 100%;
+  }
+}
+
+/* ── Rating badges ────────────────────────────────────────── */
+.rating-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.rating-badge--excellent {
+  background: var(--color-rating-excellent-bg);
+  border-color: var(--color-rating-excellent-border);
+  color: var(--color-rating-excellent-text);
+}
+
+.rating-badge--good {
+  background: var(--color-rating-good-bg);
+  border-color: var(--color-rating-good-border);
+  color: var(--color-rating-good-text);
+}
+
+.rating-badge--fair {
+  background: var(--color-rating-fair-bg);
+  border-color: var(--color-rating-fair-border);
+  color: var(--color-rating-fair-text);
+}
+
+.rating-badge--poor {
+  background: var(--color-rating-poor-bg);
+  border-color: var(--color-rating-poor-border);
+  color: var(--color-rating-poor-text);
+}
+
+/* ── Calculator two-column layout ────────────────────────── */
+.calculator-layout {
+  grid-template-columns: minmax(260px, 380px) 1fr;
+}
+
+@media (max-width: 767px) {
+  .calculator-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* Hidden on desktop; shown only on mobile */
+.topbar-menu-btn {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .topbar-menu-btn {
+    display: flex;
+  }
+}
+
+/* ── Sidebar nav items ────────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--color-sidebar-alt);
+}
+
+.nav-item--active {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+}
+
+.nav-item--active:hover {
+  background: var(--color-accent-hover);
+}

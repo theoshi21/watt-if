@@ -1,5 +1,7 @@
 import React from 'react'
 import {
+  BarChart,
+  Bar,
   ComposedChart,
   Line,
   Area,
@@ -8,6 +10,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ErrorBar,
 } from 'recharts'
 import type { ForecastMonth } from '../api/types'
 
@@ -29,6 +32,7 @@ interface ChartRow {
   kwh_lower: number
   kwh_upper: number
   kwh_band: number
+  kwh_error: [number, number]   // [below, above] for ErrorBar
   price: number
   price_lower: number
   price_upper: number
@@ -36,46 +40,46 @@ interface ChartRow {
 }
 
 const colors = {
-  kwh: '#1d4ed8',
-  price: '#c2410c',
-  grid: '#d1d5db',
-  text: '#111827',
-  muted: '#4b5563',
-  border: '#d1d5db',
-  card: '#ffffff',
-  background: '#f9fafb',
+  kwh: 'var(--color-accent-primary)',
+  price: 'var(--color-red)',
+  grid: 'var(--color-border)',
+  text: 'var(--color-text-primary)',
+  muted: 'var(--color-text-muted)',
+  border: 'var(--color-border)',
+  card: 'var(--color-card-bg)',
+  background: 'var(--color-page-bg)',
 }
 
 const chartCardStyle: React.CSSProperties = {
-  background: colors.card,
-  border: `1px solid ${colors.border}`,
-  borderRadius: '1rem',
+  background: 'var(--color-card-bg)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-card)',
+  boxShadow: 'var(--shadow-card)',
   padding: '1.25rem',
   marginBottom: '1.25rem',
-  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.05)',
 }
 
 const titleStyle: React.CSSProperties = {
   margin: '0',
   fontSize: '1rem',
   fontWeight: 700,
-  color: colors.text,
+  color: 'var(--color-text-primary)',
 }
 
 const subtitleStyle: React.CSSProperties = {
   margin: '0.25rem 0 1rem',
   fontSize: '0.85rem',
-  color: colors.muted,
+  color: 'var(--color-text-muted)',
 }
 
 const tooltipBoxStyle: React.CSSProperties = {
-  background: colors.card,
-  border: `1px solid ${colors.border}`,
+  background: 'var(--color-card-bg)',
+  border: '1px solid var(--color-border)',
   borderRadius: '0.75rem',
   padding: '0.75rem',
   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
   fontSize: '0.85rem',
-  color: colors.text,
+  color: 'var(--color-text-primary)',
 }
 
 function KwhTooltip({ active, payload, label }: any) {
@@ -139,6 +143,10 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
     kwh_lower: round(m.kwh_lower_95),
     kwh_upper: round(m.kwh_upper_95),
     kwh_band: round(m.kwh_upper_95 - m.kwh_lower_95),
+    kwh_error: [
+      round(m.kwh_forecast - m.kwh_lower_95),
+      round(m.kwh_upper_95 - m.kwh_forecast),
+    ],
 
     price: round(m.price_forecast),
     price_lower: round(m.price_lower_95),
@@ -153,7 +161,8 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
         <p style={subtitleStyle}>Monthly kWh forecast with 95% confidence interval</p>
 
         <ResponsiveContainer width="100%" height={340}>
-          <ComposedChart data={data} margin={{ top: 16, right: 28, bottom: 16, left: 8 }}>
+          <BarChart data={data} margin={{ top: 16, right: 28, bottom: 16, left: 8 }}
+            barCategoryGap="30%">
             <CartesianGrid strokeDasharray="4 4" stroke={colors.grid} vertical={false} />
 
             <XAxis
@@ -172,39 +181,24 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
               width={72}
             />
 
-            <Tooltip content={<KwhTooltip />} />
+            <Tooltip content={<KwhTooltip />} cursor={{ fill: 'var(--color-border)', opacity: 0.4 }} />
 
-            <Area
-              type="monotone"
-              dataKey="kwh_lower"
-              stackId="kwh-ci"
-              stroke="none"
-              fill="transparent"
-              legendType="none"
-              tooltipType="none"
-              activeDot={false}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="kwh_band"
-              stackId="kwh-ci"
-              stroke="none"
-              fill={colors.kwh}
-              fillOpacity={0.16}
-              legendType="none"
-              activeDot={false}
-            />
-
-            <Line
-              type="monotone"
+            <Bar
               dataKey="kwh"
-              stroke={colors.kwh}
-              strokeWidth={3}
-              dot={{ r: 4, strokeWidth: 2, fill: colors.card, stroke: colors.kwh }}
-              activeDot={{ r: 6, strokeWidth: 2, fill: colors.kwh, stroke: colors.card }}
-            />
-          </ComposedChart>
+              fill={colors.kwh}
+              fillOpacity={0.85}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={52}
+            >
+              <ErrorBar
+                dataKey="kwh_error"
+                width={6}
+                strokeWidth={2}
+                stroke={colors.kwh}
+                direction="y"
+              />
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
 

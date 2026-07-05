@@ -73,11 +73,34 @@ CREATE TABLE IF NOT EXISTS training_log (
 );
 """
 
+_DDL_DATA_ENTRY_LOG = """
+CREATE TABLE IF NOT EXISTS data_entry_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    year_month   TEXT NOT NULL,
+    kwh          REAL NOT NULL,
+    bill_amount  REAL,
+    label        TEXT,
+    source       TEXT NOT NULL CHECK(source IN ('Manual', 'CSV Upload')),
+    created_at   TEXT NOT NULL
+);
+"""
+
+_DDL_CHAT_HISTORY = """
+CREATE TABLE IF NOT EXISTS chat_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    role       TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+    text       TEXT NOT NULL CHECK(length(text) >= 1 AND length(text) <= 10000),
+    created_at TEXT NOT NULL
+);
+"""
+
 _ALL_DDL = [
     _DDL_MONTHLY_BILL_RECORDS,
     _DDL_DAILY_AGGREGATES,
     _DDL_MONTHLY_AGGREGATES,
     _DDL_TRAINING_LOG,
+    _DDL_DATA_ENTRY_LOG,
+    _DDL_CHAT_HISTORY,
 ]
 
 

@@ -4,10 +4,12 @@ import { UploadPanel } from '../components/UploadPanel'
 
 vi.mock('../api/client', () => ({
   uploadCsv: vi.fn(),
+  getTrainingStatus: vi.fn(),
 }))
 
-import { uploadCsv } from '../api/client'
+import { uploadCsv, getTrainingStatus } from '../api/client'
 const mockUpload = uploadCsv as ReturnType<typeof vi.fn>
+const mockStatus = getTrainingStatus as ReturnType<typeof vi.fn>
 
 const csvFile = new File(['year_month,kwh,price\n2024-01,300,80\n'], 'bills.csv', {
   type: 'text/csv',
@@ -28,14 +30,15 @@ describe('UploadPanel', () => {
       cleaning_report: null,
       retraining_triggered: false,
     })
+    mockStatus.mockResolvedValue({ status: 'done' })
 
     render(<UploadPanel />)
     const input = screen.getByLabelText(/upload csv file/i)
     fireEvent.change(input, { target: { files: [csvFile] } })
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(/uploaded successfully/i)
-    })
+      expect(screen.getByRole('status')).toHaveTextContent(/model trained/i)
+    }, { timeout: 5000 })
   })
 
   it('shows error notification on failed upload', async () => {
@@ -57,10 +60,12 @@ describe('UploadPanel', () => {
       cleaning_report: null,
       retraining_triggered: false,
     })
+    mockStatus.mockResolvedValue({ status: 'done' })
+
     render(<UploadPanel onUploadSuccess={onSuccess} />)
     const input = screen.getByLabelText(/upload csv file/i)
     fireEvent.change(input, { target: { files: [csvFile] } })
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce())
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce(), { timeout: 5000 })
   })
 })

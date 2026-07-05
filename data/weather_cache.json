@@ -1,0 +1,72 @@
+{
+  "2026-07": {
+    "year_month": "2026-07",
+    "avg_temperature": 29.14,
+    "avg_humidity": 74.8,
+    "total_rainfall_mm": 23.2,
+    "rainy_days_count": 5,
+    "hot_days_count": 2,
+    "source": "open-meteo-forecast",
+    "_cached_at": "2026-07-05T08:43:57.363959+00:00"
+  },
+  "2026-06": {
+    "year_month": "2026-06",
+    "avg_temperature": 29.54,
+    "avg_humidity": 73.82,
+    "total_rainfall_mm": 159.5,
+    "rainy_days_count": 30,
+    "hot_days_count": 13,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T08:51:27.862181+00:00"
+  },
+  "2026-05": {
+    "year_month": "2026-05",
+    "avg_temperature": 31.09,
+    "avg_humidity": 62.1,
+    "total_rainfall_mm": 80.5,
+    "rainy_days_count": 28,
+    "hot_days_count": 28,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T08:56:52.794924+00:00"
+  },
+  "2026-04": {
+    "year_month": "2026-04",
+    "avg_temperature": 29.92,
+    "avg_humidity": 57.75,
+    "total_rainfall_mm": 6.7,
+    "rainy_days_count": 11,
+    "hot_days_count": 30,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T14:51:13.554565+00:00"
+  },
+  "2026-03": {
+    "year_month": "2026-03",
+    "avg_temperature": 27.58,
+    "avg_humidity": 60.69,
+    "total_rainfall_mm": 19.3,
+    "rainy_days_count": 20,
+    "hot_days_count": 10,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T14:51:30.290201+00:00"
+  },
+  "2026-02": {
+    "year_month": "2026-02",
+    "avg_temperature": 26.91,
+    "avg_humidity": 67.23,
+    "total_rainfall_mm": 42.9,
+    "rainy_days_count": 13,
+    "hot_days_count": 5,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T14:51:48.269848+00:00"
+  },
+  "2026-01": {
+    "year_month": "2026-01",
+    "avg_temperature": 26.09,
+    "avg_humidity": 72.27,
+    "total_rainfall_mm": 45.4,
+    "rainy_days_count": 23,
+    "hot_days_count": 0,
+    "source": "open-meteo-archive",
+    "_cached_at": "2026-07-05T14:52:01.916634+00:00"
+  }
+}

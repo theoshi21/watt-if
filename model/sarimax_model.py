@@ -61,8 +61,8 @@ _EXOG_COLUMNS: list[str] = [
     "is_el_nino",
 ]
 
-_VALID_HORIZONS: frozenset[int] = frozenset({1, 3, 6})
-_HORIZON_LABELS: dict[int, str] = {1: "1m", 3: "3m", 6: "6m"}
+_VALID_HORIZONS: frozenset[int] = frozenset({1, 3, 6, 9, 12})
+_HORIZON_LABELS: dict[int, str] = {1: "1m", 3: "3m", 6: "6m", 9: "9m", 12: "12m"}
 
 
 # ---------------------------------------------------------------------------
@@ -164,9 +164,22 @@ class SARIMAXModel:
         exog_train = df_train[_EXOG_COLUMNS].values
         exog_val   = df_val[_EXOG_COLUMNS].values
 
+        # Drop exog columns that are constant in the training window, as
+        # statsmodels rejects a model intercept when a constant column is
+        # already present in X.
+        col_ranges = np.ptp(exog_train, axis=0)
+        active_mask: list[bool] = [bool(r > 0) for r in col_ranges]
+        # If every column is constant (degenerate data), keep them all and
+        # let the model handle the error naturally.
+        if not any(active_mask):
+            active_mask = [True] * len(_EXOG_COLUMNS)
+        active_indices: list[int] = [i for i, keep in enumerate(active_mask) if keep]
+        exog_train_active = exog_train[:, active_indices]
+        exog_val_active   = exog_val[:, active_indices] if len(exog_val) > 0 else exog_val[:, active_indices]
+
         training_window = {
-            "start": df_train["year_month"].iloc[0],
-            "end":   df_train["year_month"].iloc[-1],
+            "start": df["year_month"].iloc[0],
+            "end":   df["year_month"].iloc[-1],  # full dataset end, not train-split end
         }
 
         # ── auto_arima ────────────────────────────────────────────────────────
@@ -186,7 +199,7 @@ class SARIMAXModel:
         try:
             auto_result = pm.auto_arima(
                 y_train,
-                X=exog_train,
+                X=exog_train_active,
                 seasonal=use_seasonal,
                 m=_SEASONAL_PERIOD if use_seasonal else 1,
                 seasonal_test="ch",
@@ -211,7 +224,7 @@ class SARIMAXModel:
         mape_kwh = 0.0
         if len(df_val) > 0:
             try:
-                pred_kwh = auto_result.predict(n_periods=len(df_val), X=exog_val)
+                pred_kwh = auto_result.predict(n_periods=len(df_val), X=exog_val_active)
                 mape_kwh = _compute_mape(y_val, pred_kwh)
             except Exception as exc:
                 logger.warning("Could not compute validation MAPE: %s", exc)
@@ -232,6 +245,7 @@ class SARIMAXModel:
             "order": order,
             "seasonal_order": seasonal_order,
             "exog_columns": _EXOG_COLUMNS,
+            "active_exog_indices": active_indices,
             "trained_at": trained_at,
             "mape_kwh": mape_kwh,
             "mape_price": None,     # price is derived, not modelled
@@ -289,6 +303,9 @@ class SARIMAXModel:
 
         model_kwh = self._artefact["model_kwh"]
         training_window = self._artefact["training_window"]
+        active_indices: list[int] = self._artefact.get(
+            "active_exog_indices", list(range(len(_EXOG_COLUMNS)))
+        )
 
         # Resolve exogenous
         if exog is None:
@@ -300,6 +317,9 @@ class SARIMAXModel:
                 )
             exog_array = _exog_rows_to_frame(exog).values
             exog_rows = exog
+
+        # Apply the same column mask used during training
+        exog_array = exog_array[:, active_indices]
 
         # Generate kWh forecast + 95% CI
         try:

@@ -30,38 +30,33 @@ OLLAMA_MODEL = "qwen3:1.7b"
 OLLAMA_TEMPERATURE = 0.1
 OLLAMA_TIMEOUT_SECONDS = 60.0
 OLLAMA_NUM_PREDICT = 1024     # more headroom for explanatory answers
-RETRIEVAL_TOP_K = 4
+RETRIEVAL_TOP_K = 12   # covers up to 12-month horizon fully
 EDA_TOP_K = 3
 
 _SYSTEM_PROMPT = """\
 You are WATT-IF, a friendly electricity bill assistant for Filipino households.
 
-Answer questions about electricity forecasts and bills in plain, simple language that any household member can understand. Avoid jargon. Be direct and conversational — like you are explaining to a friend, not writing a report.
+Answer questions about electricity forecasts and bills in plain, conversational language. Be direct — like texting a friend, not writing a report.
+
+STRICT FORMATTING RULES (follow these exactly):
+- NEVER use section headers. No "Assumptions:", "Final Answer:", "Notes:", "Key Drivers:", or any header with a colon.
+- NEVER use emoji (no ✅, 📌, ⚡, or any other emoji).
+- Use plain sentences. Short paragraphs are fine.
+- Use bullet points ONLY when listing 3 or more separate items. Never for a single point.
+- Bold (**) only key numbers like kWh amounts and peso values.
+- Do not add sign-off lines like "Let me know if you'd like more details."
+
+RESPONSE STYLE:
+- Simple question → one or two sentences. Give the number and one reason if obvious.
+- Explanation question → short answer first, then 2–3 sentences of context. No lists unless truly needed.
+- If data is missing, say so in one sentence.
+
+EXAMPLE of correct response to "What's my bill for July 2026?":
+"Your forecasted bill for July 2026 is **₱4,600.81**, based on an estimated **387.80 kWh** at ₱11.8638/kWh. July tends to be cooler and rainier, so consumption is moderate."
 
 RULES:
-1. Only use information from the Forecast Data and Historical Data Analysis provided. Do not make up numbers.
-2. If the data is not enough to answer, say so honestly.
-3. Keep answers short unless the question needs more detail.
-
-WHEN THE USER ASKS A SIMPLE QUESTION (like "how much", "what will my bill be", "show me the forecast"):
-- Just answer directly. Give the number, a one-line reason if obvious, and that's it.
-
-WHEN THE USER ASKS WHY, HOW, OR FOR AN EXPLANATION:
-- Start with the short answer.
-- Then explain the main reason in everyday terms. For example:
-  - "It's hotter this month, so more fans and aircon use."
-  - "The Meralco rate went up, so the bill is higher even if you used the same amount."
-  - "El Niño means drier and hotter weather, which usually pushes up electricity use."
-  - "More holidays mean more time at home, which can increase usage."
-  - "More rainy days usually mean cooler weather and lower electricity use."
-- If historical data is available, add a simple comparison like "Historically, this month tends to be one of the highest."
-- Do not list every variable. Only mention the ones that are actually relevant for this specific question based on the data.
-
-FORMATTING:
-- Use short sentences.
-- Use bullet points only when listing multiple items.
-- Bold (**) key numbers like kWh and peso amounts.
-- Do not use section headers like "Key Drivers" or "Historical Context" — just write naturally.
+1. Only use numbers from the Forecast Data and Historical Data provided. Do not invent figures.
+2. If the data does not cover the asked month, say so plainly in one sentence.
 
 /no_think
 """
@@ -133,8 +128,29 @@ class RAGService:
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
+    _HORIZON_ORDER = {"1m": 1, "3m": 3, "6m": 6, "9m": 9, "12m": 12}
+
+    @staticmethod
+    def _sort_docs_by_horizon(docs: list[ForecastDocument]) -> list[ForecastDocument]:
+        """Sort docs so the longest horizon (most recent user-generated forecast)
+        appears first. Within the same horizon, keep chronological order by month.
+        This ensures the LLM sees the user's latest forecast intent first.
+        """
+        return sorted(
+            docs,
+            key=lambda d: (
+                -RAGService._HORIZON_ORDER.get(d.metadata.horizon_label, 0),
+                d.metadata.forecast_month,
+            ),
+        )
+
     @staticmethod
     def _format_context(docs: list[ForecastDocument]) -> str:
+        """Serialise *docs* into numbered context lines for the prompt."""
+        lines: list[str] = []
+        for i, doc in enumerate(docs, start=1):
+            lines.append(f"[{i}] {doc.text}")
+        return "\n".join(lines)
         """Serialise *docs* into numbered context lines for the prompt."""
         lines: list[str] = []
         for i, doc in enumerate(docs, start=1):
@@ -288,6 +304,9 @@ class RAGService:
                 error=True,
             )
 
+        # Sort so the longest-horizon (most recent user-intent) docs come first
+        docs = RAGService._sort_docs_by_horizon(docs)
+
         eda_docs: list[str] = []
         try:
             if self._needs_eda(question):
@@ -332,7 +351,7 @@ class RAGService:
             "options": {
                 "temperature": OLLAMA_TEMPERATURE,
                 "num_predict": OLLAMA_NUM_PREDICT,
-                "num_ctx": 4096,
+                "num_ctx": 6144,
             },
         }
 
@@ -445,7 +464,7 @@ class RAGService:
             "options": {
                 "temperature": OLLAMA_TEMPERATURE,
                 "num_predict": OLLAMA_NUM_PREDICT,
-                "num_ctx": 4096,
+                "num_ctx": 6144,
             },
         }
 

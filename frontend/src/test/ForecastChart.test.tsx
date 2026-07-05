@@ -11,6 +11,8 @@ const makeForecastMonth = (i: number): ForecastMonth => ({
   price_forecast: 85 + i,
   price_lower_95: 75 + i,
   price_upper_95: 95 + i,
+  avg_temperature: 28.5,
+  avg_humidity: 72.0,
 })
 
 describe('ForecastChart', () => {
@@ -22,16 +24,16 @@ describe('ForecastChart', () => {
   it('renders the chart container when months are provided', () => {
     const months = [makeForecastMonth(0), makeForecastMonth(1), makeForecastMonth(2)]
     render(<ForecastChart months={months} />)
-    expect(screen.getByLabelText('Forecast chart')).toBeInTheDocument()
+    expect(screen.getByLabelText('Forecast charts')).toBeInTheDocument()
   })
 
   it('shows kWh heading', () => {
     render(<ForecastChart months={[makeForecastMonth(0)]} />)
-    expect(screen.getByText(/kWh Forecast/i)).toBeInTheDocument()
+    expect(screen.getByText(/Electricity Consumption Forecast/i)).toBeInTheDocument()
   })
 
   it('shows Price heading', () => {
     render(<ForecastChart months={[makeForecastMonth(0)]} />)
-    expect(screen.getByText(/Price Forecast/i)).toBeInTheDocument()
+    expect(screen.getByText(/Electricity Bill Forecast/i)).toBeInTheDocument()
   })
 })

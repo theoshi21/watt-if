@@ -5,9 +5,15 @@
 
 import type {
   AskResponse,
+  ChatMessageCreate,
+  ChatMessageRow,
+  DataEntryCreate,
+  DataEntryRow,
+  DataEntryUpdate,
   ForecastResponse,
   HealthResponse,
   Horizon,
+  MeralcoRateResponse,
   ModelInfoResponse,
   UploadResponse,
 } from './types'
@@ -123,4 +129,86 @@ export async function getModelInfo(): Promise<ModelInfoResponse> {
 /** GET /status — check background training state */
 export async function getTrainingStatus(): Promise<{ status: string; error: string | null }> {
   return request<{ status: string; error: string | null }>('/status')
+}
+
+/** POST /retrain — manually trigger a full retrain on all available data */
+export async function triggerRetrain(): Promise<{ status: string }> {
+  return request<{ status: string }>('/retrain', { method: 'POST' })
+}
+
+/** DELETE /data/all — permanently wipe all training data and the model artefact */
+export async function clearAllData(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/data/all`, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const detail = (body as { detail?: string }).detail ?? res.statusText
+    throw new Error(`${res.status}: ${detail}`)
+  }
+}
+
+/** GET /data-entries — fetch all data entry log rows ordered by created_at DESC */
+export async function getDataEntries(): Promise<DataEntryRow[]> {
+  return request<DataEntryRow[]>('/data-entries')
+}
+
+/** POST /data-entries — persist a new data entry row */
+export async function createDataEntry(entry: DataEntryCreate): Promise<DataEntryRow> {
+  return request<DataEntryRow>('/data-entries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  })
+}
+
+/** PUT /data-entries/{id} — update an existing entry */
+export async function updateDataEntry(id: number, update: DataEntryUpdate): Promise<DataEntryRow> {
+  return request<DataEntryRow>(`/data-entries/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  })
+}
+
+/** DELETE /data-entries/{id} — remove an entry */
+export async function deleteDataEntry(id: number): Promise<void> {
+  const res = await fetch(`${BASE_URL}/data-entries/${id}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const detail = (body as { detail?: string }).detail ?? res.statusText
+    throw new Error(`${res.status}: ${detail}`)
+  }
+}
+
+/** GET /chat-history — fetch up to 100 most recent chat messages ordered ascending */
+export async function getChatHistory(): Promise<ChatMessageRow[]> {
+  return request<ChatMessageRow[]>('/chat-history')
+}
+
+/** POST /chat-history — persist a new chat message */
+export async function createChatMessage(msg: ChatMessageCreate): Promise<ChatMessageRow> {
+  return request<ChatMessageRow>('/chat-history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(msg),
+  })
+}
+
+/** DELETE /chat-history — wipe all chat messages from the database */
+export async function clearChatHistory(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/chat-history`, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const detail = (body as { detail?: string }).detail ?? res.statusText
+    throw new Error(`${res.status}: ${detail}`)
+  }
+}
+
+/** GET /meralco-rate — fetch current Meralco residential rate (cached 24h) */
+export async function getMeralcoRate(): Promise<MeralcoRateResponse> {
+  return request<MeralcoRateResponse>('/meralco-rate')
+}
+
+/** POST /meralco-rate/refresh — force a fresh scrape, bypassing the 24h cache */
+export async function refreshMeralcoRate(): Promise<MeralcoRateResponse> {
+  return request<MeralcoRateResponse>('/meralco-rate/refresh', { method: 'POST' })
 }

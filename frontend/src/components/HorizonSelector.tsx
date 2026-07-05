@@ -7,8 +7,8 @@ interface Props {
   disabled?: boolean
 }
 
-const HORIZONS: Horizon[] = [1, 3, 6]
-const LABELS: Record<Horizon, string> = { 1: '1m', 3: '3m', 6: '6m' }
+const HORIZONS: Horizon[] = [1, 3, 6, 9, 12]
+const LABELS: Record<Horizon, string> = { 1: '1m', 3: '3m', 6: '6m', 9: '9m', 12: '12m' }
 
 export const HorizonSelector: React.FC<Props> = ({ selected, onChange, disabled }) => {
   return (
@@ -22,11 +22,13 @@ export const HorizonSelector: React.FC<Props> = ({ selected, onChange, disabled 
           style={{
             padding: '0.4rem 1rem',
             fontWeight: selected === h ? 'bold' : 'normal',
-            border: selected === h ? '2px solid #4f8ef7' : '2px solid #ccc',
-            borderRadius: '4px',
+            border: selected === h ? '2px solid var(--color-accent-primary)' : '2px solid var(--color-border)',
+            borderRadius: 'var(--radius-card)',
             cursor: disabled ? 'not-allowed' : 'pointer',
-            background: selected === h ? '#4f8ef7' : '#fff',
-            color: selected === h ? '#fff' : '#333',
+            background: selected === h ? 'var(--color-accent-primary)' : 'var(--color-input-fill)',
+            color: selected === h ? 'var(--color-text-on-accent)' : 'var(--color-text-primary)',
+            fontFamily: 'var(--font-sans)',
+            transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
           }}
         >
           {LABELS[h]}

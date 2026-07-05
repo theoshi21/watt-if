@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { streamQuestion } from '../api/client'
+import { createChatMessage, getChatHistory, streamQuestion, clearChatHistory } from '../api/client'
 
 interface Message {
   id: number
@@ -12,31 +12,43 @@ export const ChatPanel: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [waiting, setWaiting] = useState(false)  // true until first token arrives
-  const streamingMsgId = useRef<number | null>(null)  // id of the bubble being streamed into
+  const [waiting, setWaiting] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const streamingMsgId = useRef<number | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const nextId = useRef(0)
 
-  const scrollToBottom = () => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight
-    }
-  }
+  const scrollToBottom = useCallback(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
+  }, [])
 
-  // Scroll when messages array changes (new message added or removed)
+  // Load chat history on mount
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, waiting])
+    getChatHistory()
+      .then((rows) => {
+        setMessages(
+          rows
+            .filter((r) => r.role === 'user' || r.role === 'assistant')
+            .map((r) => ({ id: nextId.current++, role: r.role as 'user' | 'assistant', text: r.text }))
+        )
+      })
+      .catch((err) => {
+        setHistoryError(err instanceof Error ? err.message : 'Could not load chat history.')
+      })
+      .finally(() => setHistoryLoading(false))
+  }, [])
 
-  // Also scroll whenever the container's height changes — catches every token
-  // that makes the assistant bubble taller, firing after the browser paints.
+  useEffect(() => { scrollToBottom() }, [messages, waiting, historyLoading, scrollToBottom])
+
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     const observer = new ResizeObserver(() => scrollToBottom())
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [scrollToBottom])
 
   const append = (role: Message['role'], text: string): number => {
     const id = nextId.current++
@@ -45,9 +57,19 @@ export const ChatPanel: React.FC = () => {
   }
 
   const updateMessage = (id: number, text: string) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, text } : m))
-    )
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text } : m)))
+  }
+
+  const handleClear = async () => {
+    if (loading) return
+    try {
+      await clearChatHistory()
+    } catch {
+      // best-effort — clear the UI regardless
+    }
+    setMessages([])
+    setInput('')
+    inputRef.current?.focus()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,10 +81,10 @@ export const ChatPanel: React.FC = () => {
     setLoading(true)
     setWaiting(true)
 
-    // Create the assistant bubble immediately so tokens stream into it
     const assistantId = append('assistant', '')
     streamingMsgId.current = assistantId
     let accumulated = ''
+    let streamErrored = false
 
     try {
       await streamQuestion(
@@ -77,6 +99,7 @@ export const ChatPanel: React.FC = () => {
           setWaiting(false)
         },
         (errMsg) => {
+          streamErrored = true
           streamingMsgId.current = null
           setWaiting(false)
           updateMessage(assistantId, '')
@@ -84,6 +107,7 @@ export const ChatPanel: React.FC = () => {
         },
       )
     } catch (err) {
+      streamErrored = true
       const msg = err instanceof Error ? err.message : 'An error occurred'
       updateMessage(assistantId, '')
       append('error', `Could not display answer: ${msg}`)
@@ -92,13 +116,76 @@ export const ChatPanel: React.FC = () => {
       setWaiting(false)
       setLoading(false)
     }
+
+    if (!streamErrored && accumulated) {
+      try { await createChatMessage({ role: 'user', text: q }) } catch { /* ignore */ }
+      try { await createChatMessage({ role: 'assistant', text: accumulated }) } catch { /* ignore */ }
+    }
   }
 
   return (
-    <section aria-label="Chat" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <h2 style={{ margin: '0 0 0.5rem' }}>Ask about your forecast</h2>
+    <section
+      className="card"
+      aria-label="Chat"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,           // fill the AskPage container
+        minHeight: 0,      // allow flex child to shrink below content size
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.75rem',
+        flexShrink: 0,
+      }}>
+        <h2 style={{
+          margin: 0,
+          fontFamily: 'var(--font-sans)',
+          fontSize: '1rem',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+        }}>
+          Ask about your forecast
+        </h2>
+        <button
+          onClick={handleClear}
+          disabled={loading || messages.length === 0}
+          title="Clear conversation"
+          style={{
+            background: 'none',
+            border: '1px solid var(--color-border)',
+            borderRadius: '0.375rem',
+            padding: '0.25rem 0.6rem',
+            cursor: messages.length === 0 || loading ? 'not-allowed' : 'pointer',
+            color: messages.length === 0 || loading ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '0.75rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+            opacity: messages.length === 0 || loading ? 0.45 : 1,
+            transition: 'opacity 0.15s',
+          }}
+          aria-label="Clear conversation"
+        >
+          {/* Trash icon */}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+          Clear chat
+        </button>
+      </div>
 
-      {/* Message thread */}
+      {/* ── Message thread ───────────────────────────────────────────────── */}
       <div
         ref={listRef}
         role="log"
@@ -106,105 +193,72 @@ export const ChatPanel: React.FC = () => {
         aria-label="Conversation"
         style={{
           flex: 1,
+          minHeight: 0,           // critical — allows this to shrink in a flex column
           overflowY: 'auto',
-          border: '1px solid #ddd',
-          borderRadius: '6px',
+          borderRadius: '0.5rem',
           padding: '0.75rem',
           display: 'flex',
           flexDirection: 'column',
           gap: '0.75rem',
-          minHeight: '200px',
-          maxHeight: '420px',
-          background: '#fafafa',
+          background: 'var(--color-page-bg)',
+          border: '1px solid var(--color-border)',
         }}
       >
-        {messages.length === 0 && !loading && (
-          <p style={{ color: '#aaa', textAlign: 'center', margin: 'auto', fontSize: '0.9rem' }}>
-            Ask a question about your electricity forecast.<br />
-            <span style={{ fontSize: '0.8rem' }}>
-              e.g. "What will my bill be in January 2025?"
+        {historyLoading && (
+          <div style={bubbleStyle('assistant')}>
+            <BounceDots />
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+              Loading history…
             </span>
+          </div>
+        )}
+
+        {historyError && !historyLoading && (
+          <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', margin: 'auto', fontFamily: 'var(--font-sans)', fontSize: '0.85rem' }}>
+            Chat history could not be loaded: {historyError}
           </p>
         )}
 
+        {messages.length === 0 && !loading && !historyLoading && (
+          <div style={{ margin: 'auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <p style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)', fontSize: '0.9rem', margin: 0 }}>
+              Ask a question about your electricity forecast.
+            </p>
+            <p style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)', fontSize: '0.8rem', margin: 0 }}>
+              e.g. "What will my bill be next month?"
+            </p>
+          </div>
+        )}
+
         {messages.map((m) => (
-          <div
-            key={m.id}
-            role="article"
-            aria-label={m.role}
-            style={{
-              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              padding: '0.6rem 0.9rem',
-              borderRadius: '10px',
-              background:
-                m.role === 'user' ? '#3a7bd5' :
-                m.role === 'error' ? '#ffebee' : '#ffffff',
-              color:
-                m.role === 'user' ? '#fff' :
-                m.role === 'error' ? '#c62828' : '#222',
-              fontSize: '0.9rem',
-              lineHeight: 1.6,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              border: m.role === 'assistant' ? '1px solid #e8e8e8' : 'none',
-            }}
-          >
+          <div key={m.id} role="article" aria-label={m.role} style={bubbleStyle(m.role)}>
             {m.role === 'assistant' ? (
-              /* Only render markdown once streaming is complete — mid-stream
-                 incomplete markers (e.g. unclosed **) render as raw text otherwise */
               streamingMsgId.current === m.id ? (
-                <span style={{ whiteSpace: 'pre-wrap' }}>{m.text}</span>
+                <span style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
               ) : (
                 <ReactMarkdown
                   components={{
-                    p: ({ children }) => <p style={{ margin: '0 0 0.4rem' }}>{children}</p>,
+                    p: ({ children }) => <p style={{ margin: '0 0 0.4rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</p>,
                     ul: ({ children }) => <ul style={{ margin: '0.2rem 0', paddingLeft: '1.2rem' }}>{children}</ul>,
-                    li: ({ children }) => <li style={{ marginBottom: '0.2rem' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ color: '#1a1a2e' }}>{children}</strong>,
+                    li: ({ children }) => <li style={{ marginBottom: '0.2rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</li>,
+                    strong: ({ children }) => <strong style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
                   }}
                 >
                   {m.text}
                 </ReactMarkdown>
               )
             ) : (
-              m.text
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
             )}
           </div>
         ))}
 
-        {/* "Generating answer…" indicator — shown until first token arrives */}
         {waiting && (
-          <div
-            aria-label="Generating answer"
-            style={{
-              alignSelf: 'flex-start',
-              padding: '0.6rem 0.9rem',
-              borderRadius: '10px',
-              background: '#ffffff',
-              border: '1px solid #e8e8e8',
-              color: '#888',
-              fontSize: '0.85rem',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-            }}
-          >
-            <span style={{ display: 'inline-flex', gap: 4 }}>
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: '#aaa',
-                    animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-                  }}
-                />
-              ))}
+          <div style={bubbleStyle('assistant')}>
+            <BounceDots />
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+              Generating answer…
             </span>
-            Generating answer…
             <style>{`
               @keyframes bounce {
                 0%, 80%, 100% { transform: translateY(0); }
@@ -213,47 +267,87 @@ export const ChatPanel: React.FC = () => {
             `}</style>
           </div>
         )}
-
       </div>
 
-      {/* Input form */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-        <input
-          type="text"
-          aria-label="Question input"
-          placeholder="e.g. What will my bill be in January 2025?"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          maxLength={500}
-          disabled={loading}
-          style={{
-            flex: 1,
-            padding: '0.5rem 0.75rem',
-            borderRadius: '6px',
-            border: '1px solid #ccc',
-            fontSize: '0.9rem',
-          }}
-        />
-        <button
-          type="submit"
-          disabled={loading || input.trim().length === 0}
-          aria-label="Submit question"
-          style={{
-            padding: '0.5rem 1.1rem',
-            borderRadius: '6px',
-            background: loading ? '#aaa' : '#3a7bd5',
-            color: '#fff',
-            border: 'none',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontWeight: 500,
-          }}
-        >
-          {loading ? '…' : 'Ask'}
-        </button>
-      </form>
-      <div aria-live="polite" style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.25rem' }}>
-        {input.length}/500
+      {/* ── Input ────────────────────────────────────────────────────────── */}
+      <div style={{ flexShrink: 0, marginTop: '0.75rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
+          <input
+            ref={inputRef}
+            type="text"
+            aria-label="Question input"
+            placeholder="e.g. What will my bill be next month?"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            maxLength={500}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '0.5rem 0.75rem',
+              borderRadius: '0.375rem',
+              border: '1px solid var(--color-input-border)',
+              fontSize: '0.9rem',
+              fontFamily: 'var(--font-sans)',
+              background: 'var(--color-input-fill)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loading || historyLoading || input.trim().length === 0}
+            aria-label="Submit question"
+            className="btn-primary"
+          >
+            {loading ? '…' : 'Ask'}
+          </button>
+        </form>
+        <div aria-live="polite" style={{ fontSize: '0.72rem', fontFamily: 'var(--font-sans)', color: 'var(--color-text-muted)', marginTop: '0.25rem', textAlign: 'right' }}>
+          {input.length}/500
+        </div>
       </div>
     </section>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function bubbleStyle(role: 'user' | 'assistant' | 'error'): React.CSSProperties {
+  return {
+    alignSelf: role === 'user' ? 'flex-end' : 'flex-start',
+    maxWidth: '85%',
+    padding: '0.6rem 0.9rem',
+    borderRadius: '0.75rem',
+    background:
+      role === 'user'      ? 'var(--color-accent-primary)' :
+      role === 'error'     ? 'var(--color-rating-poor-bg)' :
+                             'var(--color-card-bg)',
+    color:
+      role === 'user'      ? 'var(--color-text-on-accent)' :
+      role === 'error'     ? 'var(--color-red)'           :
+                             'var(--color-text-primary)',
+    border:
+      role === 'assistant' ? '1px solid var(--color-border)' :
+      role === 'error'     ? '1px solid var(--color-red)'    :
+                             'none',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    flexWrap: 'wrap' as const,
+  }
+}
+
+function BounceDots() {
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{
+          width: 7, height: 7, borderRadius: '50%',
+          background: 'var(--color-text-muted)',
+          display: 'inline-block',
+          animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+        }} />
+      ))}
+    </span>
   )
 }
