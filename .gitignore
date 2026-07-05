@@ -1,0 +1,57 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+.venv/
+venv/
+env/
+.env
+
+# ── pytest ────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.hypothesis/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── Data / model artefacts ────────────────────────────────────────────────────
+# Keep source CSVs and generator scripts; ignore runtime-generated binary files
+data/sarimax_model.joblib
+data/wattif.db
+data/chroma/
+data/eda_summaries.json
+data/weather_cache.json
+
+# ── Node / frontend ───────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/src/.vite/
+
+# ── Vite build cache ──────────────────────────────────────────────────────────
+frontend/node_modules/.vite/
+frontend/node_modules/.package-lock.json
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Secrets / env ─────────────────────────────────────────────────────────────
+.env
+.env.*
+*.key
+*.pem
