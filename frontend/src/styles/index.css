@@ -1,4 +1,12 @@
 /* ── Global reset ─────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-page-bg);
@@ -132,6 +140,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: 220px 1fr;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .app-shell__sidebar {

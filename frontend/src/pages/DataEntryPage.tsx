@@ -31,6 +31,8 @@ const inputStyle: React.CSSProperties = {
   padding: '0.5rem 0.75rem',
   fontSize: '0.875rem',
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   boxSizing: 'border-box',
   color: 'var(--color-text-primary)',
   fontFamily: 'var(--font-sans)',
@@ -367,7 +369,7 @@ export function DataEntryPage() {
   const fmt = (v: number | null | undefined, d = 1) => v != null ? v.toFixed(d) : '—'
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 
       {/* ── New Reading ──────────────────────────────────────────────────── */}
       <section className="card" aria-labelledby="new-reading-hd">
@@ -382,11 +384,34 @@ export function DataEntryPage() {
           {/* Required fields */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
             <div>
-              <label htmlFor="ym" style={fieldLabel}>
+              <label style={fieldLabel}>
                 Month <span style={{ color: 'var(--color-red)' }}>*</span>
               </label>
-              <input id="ym" type="month" value={yearMonth}
-                onChange={e => setYearMonth(e.target.value)} style={inputStyle} required />
+              {/* Two selects instead of input[type=month] — avoids native picker overflow on mobile */}
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <select
+                  aria-label="Month"
+                  value={yearMonth.slice(5, 7)}
+                  onChange={e => setYearMonth(`${yearMonth.slice(0, 4)}-${e.target.value}`)}
+                  style={{ ...inputStyle, flex: '1 1 0', minWidth: 0 }}
+                >
+                  {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                    <option key={m} value={m}>
+                      {new Date(2000, i).toLocaleString('en-US', { month: 'short' })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Year"
+                  value={yearMonth.slice(0, 4)}
+                  onChange={e => setYearMonth(`${e.target.value}-${yearMonth.slice(5, 7)}`)}
+                  style={{ ...inputStyle, flex: '1 1 0', minWidth: 0 }}
+                >
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 7 + i).map(y => (
+                    <option key={y} value={String(y)}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label htmlFor="r-kwh" style={fieldLabel}>
