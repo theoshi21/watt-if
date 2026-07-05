@@ -172,15 +172,15 @@ function EditRow({ entry, onSave, onCancel }: EditRowProps) {
   )
 }
 
-// ── Inline delete confirm row ─────────────────────────────────────────────────
+// ── Delete confirm dialog (overlay, not inline row) ──────────────────────────
 
-interface DeleteRowProps {
+interface DeleteDialogProps {
   entry: DataEntryRow
   onConfirm: () => Promise<void>
   onCancel: () => void
 }
 
-function DeleteConfirmRow({ entry, onConfirm, onCancel }: DeleteRowProps) {
+function DeleteConfirmDialog({ entry, onConfirm, onCancel }: DeleteDialogProps) {
   const [deleting, setDeleting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -195,22 +195,66 @@ function DeleteConfirmRow({ entry, onConfirm, onCancel }: DeleteRowProps) {
   }
 
   return (
-    <tr style={{ background: 'var(--color-rating-poor-bg)', outline: '1px solid var(--color-red)', outlineOffset: '-1px' }}>
-      <td colSpan={14} style={{ ...td, color: 'var(--color-red)', fontWeight: 500 }}>
-        Delete entry for <strong style={{ fontFamily: 'var(--font-mono)' }}>{entry.year_month}</strong>?
-        {' '}This will also remove the corresponding training record.
-        {err && <span style={{ marginLeft: '0.75rem', fontWeight: 400 }}>{err}</span>}
-      </td>
-      <td style={td}>
-        <div style={{ display: 'flex', gap: '0.35rem' }}>
-          <button onClick={confirm} disabled={deleting}
-            style={{ ...btnGhost('var(--color-red)'), borderColor: 'var(--color-red)', fontWeight: 700 }}>
-            {deleting ? '…' : 'Confirm'}
+    // Backdrop
+    <div
+      onClick={deleting ? undefined : onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(0,0,0,0.35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+      }}
+    >
+      {/* Dialog box */}
+      <div
+        onClick={e => e.stopPropagation()}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="del-dialog-title"
+        style={{
+          background: 'var(--color-card-bg)',
+          border: '1px solid var(--color-red)',
+          borderRadius: 'var(--radius-card)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          padding: '1.25rem',
+          maxWidth: '420px',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}
+      >
+        <p id="del-dialog-title" style={{
+          margin: 0,
+          fontFamily: 'var(--font-sans)',
+          fontSize: '0.9rem',
+          fontWeight: 500,
+          color: 'var(--color-red)',
+        }}>
+          Delete entry for{' '}
+          <strong style={{ fontFamily: 'var(--font-mono)' }}>{entry.year_month}</strong>?
+          {' '}This will also remove the corresponding training record.
+        </p>
+        {err && (
+          <p role="alert" style={{ margin: 0, fontFamily: 'var(--font-sans)', fontSize: '0.82rem', color: 'var(--color-red)' }}>
+            {err}
+          </p>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} disabled={deleting} className="btn-secondary">
+            Cancel
           </button>
-          <button onClick={onCancel} disabled={deleting} style={btnGhost()}>Cancel</button>
+          <button
+            onClick={confirm}
+            disabled={deleting}
+            className="btn-danger"
+            style={{ fontWeight: 700 }}
+          >
+            {deleting ? 'Deleting…' : 'Yes, delete'}
+          </button>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   )
 }
 
@@ -431,8 +475,20 @@ export function DataEntryPage() {
           <p style={{ ...meta, margin: 0 }}>No entries recorded yet.</p>
         ) : (
           <>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', fontFamily: 'var(--font-sans)' }}>
+          {/* Delete confirm dialog — rendered as overlay, not inline row */}
+          {deleteId !== null && (() => {
+            const entry = rows.find(r => r.id === deleteId)
+            if (!entry) return null
+            return (
+              <DeleteConfirmDialog
+                entry={entry}
+                onConfirm={() => handleDelete(entry.id)}
+                onCancel={() => setDeleteId(null)}
+              />
+            )
+          })()}
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', fontFamily: 'var(--font-sans)', minWidth: '900px' }}>
               <colgroup>
                 <col /><col /><col /><col />
                 {/* Auto columns — shaded */}
@@ -467,16 +523,6 @@ export function DataEntryPage() {
               </thead>
               <tbody>
                 {rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(entry => {
-                  if (deleteId === entry.id) {
-                    return (
-                      <DeleteConfirmRow
-                        key={entry.id}
-                        entry={entry}
-                        onConfirm={() => handleDelete(entry.id)}
-                        onCancel={() => setDeleteId(null)}
-                      />
-                    )
-                  }
                   if (editId === entry.id) {
                     return (
                       <EditRow

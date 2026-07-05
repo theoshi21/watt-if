@@ -2,7 +2,7 @@
 
 A locally-hosted Progressive Web App for forecasting household electricity consumption and cost in the Philippines.
 
-Upload your monthly electricity bill history as a CSV, get SARIMAX-powered forecasts for the next 1, 3, or 6 months, and ask natural-language questions about your energy usage — all running on your own machine with no cloud dependency.
+Upload your monthly electricity bill history as a CSV or enter readings manually, get SARIMAX-powered forecasts for the next 1, 3, 6, 9, or 12 months, ask natural-language questions about your energy usage, and calculate your exact Meralco bill breakdown — all running on your own machine with no cloud dependency.
 
 **Stack:** FastAPI · pmdarima · ChromaDB · SQLite · Ollama (Qwen3 1.7B) · React · Vite · Recharts · sentence-transformers · vite-plugin-pwa
 
@@ -10,16 +10,50 @@ Upload your monthly electricity bill history as a CSV, get SARIMAX-powered forec
 
 ## Features
 
-- **SARIMAX forecasting** — trains on your historical bill data with 9 exogenous variables (temperature, rainfall, humidity, Meralco rate, holidays, hot days, rainy days, El Niño status, weekend count)
-- **Month-aware fallback exog** — when no explicit future exogenous values are provided, the model estimates realistic per-month values using same-calendar-month historical averages and Philippine climate priors, so forecasts are never driven by all-zero inputs
-- **RAG chat assistant** — ask plain-language questions about your forecast; answers are grounded in retrieved forecast documents and historical EDA summaries
-- **Data-grounded explanations** — for "why" and "how" questions the assistant explains in simple terms (e.g. "It's hotter this month, so more aircon use") using real data, not templates
-- **Automatic retraining** — the model retrains in the background whenever you upload a new CSV with additional months
-- **EDA vector store** — historical analysis summaries (seasonality, temperature/rainfall/El Niño correlations, Meralco rate trends) are embedded and retrieved alongside forecast data for richer answers
-- **Forecast confidence intervals** — every forecast month includes a 95% CI band shown on the chart
-- **Model evaluation panel** — shows MAPE, ARIMA order, seasonal order, and training window
+### Forecasting
+- **SARIMAX forecasting** — trains on your bill history with 9 exogenous variables: temperature, rainfall, humidity, Meralco rate, holidays, hot days, rainy days, El Niño status, and weekend count
+- **Extended horizons** — forecast 1, 3, 6, 9, or 12 months ahead
+- **95% confidence intervals** — every forecast shows CI bands on the chart
+- **Bar chart for consumption** — kWh forecast shown as a bar chart with error bars; bill forecast shown as a line chart
+- **Month-aware fallback exog** — when no future exogenous values are provided, the model estimates using same-calendar-month historical averages and Philippine climate priors (never all-zero inputs)
+- **Correct forecast anchoring** — forecasts always project forward from your most recent data point, not from the training split cutoff
+
+### Data Entry & Management
+- **Manual entry** — enter a month and kWh reading; rate, weather, and ENSO are auto-resolved from live APIs
+- **Live bill preview** — estimated bill (kWh × live Meralco rate) shown as you type
+- **CSV upload** — upload historical data in bulk; all uploaded rows appear in Entry History
+- **Entry History** — paginated table (10 rows/page) showing all entries with auto-resolved exogenous values
+- **Inline edit/delete** — edit kWh and bill amount or delete entries directly in the history table
+- **Manual Train Model** — training only runs when you click the Train Model button, not automatically on every entry
+- **Clear All Data** — wipe all training data and the model artefact with a confirmation step
+
+### RAG Chat Assistant
+- **Natural-language questions** — ask about your forecast in plain English; answers grounded in retrieved forecast data and historical EDA summaries
+- **Full-horizon context** — the assistant uses whichever forecast you last generated (1m through 12m), not just the default 3-month view
+- **Clear chat** — wipes conversation from both the UI and the database
+- **Plain conversational answers** — no headers, no emoji, no structured reports
+
+### Price Calculator
+- **Live Meralco rate** — fetches the current Summary Schedule of Rates; cached for 24 hours
+- **Full bill breakdown** — generation, transmission, system loss, distribution, supply, metering, and other charges per bracket
+- **Auto bracket selection** — automatically picks the right consumption bracket based on your kWh; manual override available
+- **Residential and General Service** — supports multiple customer types
+
+### UI & App Shell
+- **Multi-page layout** — sidebar navigation with Dashboard, Forecast, Ask WATT-IF, Price Calculator, and Data Entry routes
+- **Fixed sidebar** — always visible, never scrolls, fits the full viewport without overflow
+- **Dark / light mode** — toggle persisted to `localStorage`
+- **Color-coded stat cards** — dashboard cards have accent colors and icons (blue kWh, teal daily avg, amber temp, indigo humidity)
+- **Design token system** — all colors, fonts, and spacing use CSS custom properties; consistent across light and dark themes
 - **Offline-capable PWA** — installable as a desktop app; shows cached forecast data when offline
-- **Health check endpoint** — `/health` reports the status of all four subsystems
+- **Health check** — `/health` reports status of all four subsystems
+
+### Backend & Data
+- **Live Meralco rate scraper** — fetches current residential rates by bracket
+- **Open-Meteo weather integration** — real historical and forecast weather for Metro Manila
+- **NOAA ENSO lookup** — El Niño / La Niña phase from the ONI index
+- **Model evaluation panel** — shows MAPE breakdown (kWh, price, average), accuracy rating, ARIMA order, and training window
+- **Synthetic dataset generator** — `data/generate_synthetic_2022_2025.py` produces a realistic 48-month Philippine household dataset (2022–2025) with real Meralco rate anchors, El Niño 2023, and La Niña 2022/2025
 
 ---
 
@@ -71,7 +105,7 @@ ollama pull qwen3:1.7b
 
 Ollama starts as a background service automatically after install.
 
-> The `/upload` and `/forecast` endpoints work without Ollama. Only `/ask` (chat) requires it.
+> Upload, forecast, and all data features work without Ollama. Only `/ask` (chat) requires it.
 
 ---
 
@@ -96,7 +130,7 @@ From the project root:
 python -m uvicorn api.main:app --reload --port 8000
 ```
 
-> **Important:** Run from the project root — the folder containing `api/`, `model/`, `pipeline/`, etc. Running from a subfolder causes `ModuleNotFoundError: No module named 'api'`.
+> **Important:** Run from the project root — the folder containing `api/`, `model/`, `pipeline/`, etc.
 
 API available at `http://localhost:8000`  
 Interactive docs: `http://localhost:8000/docs`
@@ -115,9 +149,11 @@ Open **http://localhost:5173** in your browser.
 
 ## 6. Use the app
 
-### Step 1 — Upload your bill data
+### Step 1 — Add your bill data
 
-Click **"Choose CSV"** and select a monthly electricity bill CSV. The minimum required columns are:
+**Option A — Upload a CSV**
+
+Click **Choose CSV** on the Data Entry page. The minimum required columns are:
 
 ```
 year_month,kwh,price
@@ -125,7 +161,7 @@ year_month,kwh,price
 2023-02,310.0,3890.00
 ```
 
-The extended schema (recommended for best forecast quality) includes exogenous variables:
+The extended schema (recommended for best forecast quality):
 
 ```
 year_month,kwh,price,meralco_rate,avg_temperature,avg_humidity,
@@ -148,68 +184,77 @@ rainy_days_count,is_el_nino
 | `rainy_days_count` | Integer | Number of rainy days in the month |
 | `is_el_nino` | 0 or 1 | Whether El Niño was active that month |
 
-- Minimum **14 rows** required to train the model
-- 2–3 years of history (24–36 rows) gives the best forecast quality
-- Missing optional columns are filled with defaults automatically
-- A synthetic test file is provided at `data/test_bills.csv`
-- The full extended dataset used in development is at `data/monthly_bills.csv`
+A synthetic test dataset covering 2022–2025 (48 months) is available at `data/synthetic_2022_2025.csv`. It includes realistic Meralco rates, El Niño 2023, and La Niña conditions.
 
-After upload, model retraining starts automatically in the background. A status indicator shows when training is complete.
+**Option B — Manual entry**
 
-### Step 2 — Generate a forecast
+On the Data Entry page, enter a month and kWh reading. The system auto-resolves:
+- Meralco rate (live scrape or DB fallback)
+- Weather data (Open-Meteo API)
+- ENSO phase (NOAA ONI index)
+- Weekend count (real calendar)
 
-Select **1m**, **3m**, or **6m** to generate a forecast for the next 1, 3, or 6 months. The chart shows:
-- Forecasted kWh consumption and estimated bill per month
-- 95% confidence interval shaded bands
-- Exact values on hover
+A live bill estimate (kWh × current rate) is shown as you type.
 
-When no explicit exogenous values are provided, the system estimates them using:
-- Same-calendar-month historical averages (e.g. July forecast uses all historical July records)
-- Recent Meralco rate trend (6-month linear projection)
-- Real calendar weekend count for each future month
-- Philippine PAGASA climate priors as a fallback when no historical data exists for a month
+**Minimum data:** 14 rows to train the model. 2–3 years (24–36 rows) gives the best forecast quality.
 
-### Step 3 — Ask questions (requires Ollama)
+### Step 2 — Train the model
 
-Type a natural-language question in the chat panel. The assistant answers using only the retrieved forecast data and historical analysis — it never invents numbers.
+After adding data, click **Train Model** on the Data Entry page. Training takes ~60 seconds. The panel shows live status (Idle → Training → Done/Failed) and displays the trained model's MAPE, accuracy rating, and training window once complete.
 
-**Factual questions** get direct answers:
-- *"What will my bill be in March?"*
+### Step 3 — Generate a forecast
+
+Go to the **Forecast** page. Select **1m**, **3m**, **6m**, **9m**, or **12m** to generate a forecast. The charts show:
+- Bar chart: forecasted kWh consumption with 95% CI error bars per month
+- Line chart: estimated bill per month with 95% CI band
+
+### Step 4 — Ask questions (requires Ollama)
+
+Go to **Ask WATT-IF**. Type a natural-language question. The assistant answers using the retrieved forecast data and historical analysis.
+
+**Examples:**
+- *"What will my bill be next month?"*
 - *"Which month has the highest forecast?"*
-- *"How much will I use in the next 3 months?"*
-
-**Explanatory questions** get plain-language explanations based on the actual forecast drivers:
-- *"Why is my bill higher this month?"*
+- *"Why is my bill higher in April?"*
 - *"How does El Niño affect my electricity usage?"*
-- *"Why did the forecast increase?"*
-- *"What affects my electricity bill the most?"*
-- *"Why is March more expensive than February?"*
 
-The chat assistant:
-- Only explains when you ask why/how — simple factual questions get short direct answers
-- Uses everyday language ("It's hotter this month, so more aircon use") rather than technical jargon
-- Compares against historical patterns when relevant (e.g. "Historically, this month tends to be one of the higher ones")
-- States clearly when the available data is insufficient to explain something
+Click **Clear chat** to wipe the conversation and start fresh (also clears the database history).
+
+### Step 5 — Calculate your bill
+
+Go to **Price Calculator**. Enter your monthly consumption in kWh and select your account type. The calculator shows the full Meralco bill breakdown by charge component (generation, transmission, system loss, distribution, supply, metering, and other charges) for the current rate schedule.
 
 ---
 
-## 7. Regenerate EDA summaries (optional)
+## 7. Generate a synthetic dataset (optional)
 
-After uploading new data, EDA summaries are automatically regenerated and ingested during retraining. To regenerate them manually:
+To generate a realistic 48-month dataset for testing:
 
 ```bash
-# From project root
+python data/generate_synthetic_2022_2025.py
+```
+
+This produces `data/synthetic_2022_2025.csv` with:
+- Jan 2022 – Dec 2025 (48 months)
+- Meralco rates anchored to real published figures (₱9.74 → ₱12.55/kWh)
+- El Niño Jun 2023 – Mar 2024 (+10% kWh, hotter/drier)
+- La Niña 2022 and 2025 (cooler/wetter)
+- Philippine seasonal pattern (peak Apr–May, trough Jul–Sep)
+
+---
+
+## 8. Regenerate EDA summaries (optional)
+
+After uploading new data, EDA summaries are regenerated during retraining. To regenerate manually:
+
+```bash
 python data/eda.py          # generates data/eda_summaries.json
 python data/ingest_eda.py   # ingests summaries into ChromaDB
 ```
 
-The EDA summaries cover: dataset overview, annual summaries, year-over-year changes, monthly seasonality, long-term trends, Meralco rate trends, highest/lowest consumption months, temperature vs kWh, rainfall vs kWh, holiday effects, El Niño effects, quarterly patterns, humidity vs kWh, hot days vs kWh, and a bill driver ranking.
-
 ---
 
-## 8. Install as a PWA (optional)
-
-For the full offline experience, run a production build:
+## 9. Install as a PWA (optional)
 
 ```bash
 # In the frontend/ directory
@@ -217,7 +262,7 @@ npm run build
 npm run preview
 ```
 
-Open **http://localhost:4173**. An install icon appears in the browser address bar — click it to install WATT-IF as a standalone desktop app. When offline, the app shows the most recently cached forecast.
+Open **http://localhost:4173**. Click the install icon in the browser address bar to install as a standalone desktop app.
 
 ---
 
@@ -226,44 +271,104 @@ Open **http://localhost:4173**. An install icon appears in the browser address b
 ```
 WATT-IF/
 ├── api/
-│   ├── main.py                  # FastAPI app — /upload, /forecast, /ask, /health, /model-info
+│   ├── main.py                  # FastAPI app — all endpoints
 │   └── schemas.py               # Pydantic request/response models
 ├── pipeline/
 │   ├── data_pipeline.py         # CSV ingestion, cleaning, SQLite persistence
 │   ├── feature_engineering.py   # Month-aware seasonality exog estimation
-│   └── models.py                # Shared dataclasses (MonthlyRecord, ForecastMonth, etc.)
+│   └── models.py                # Shared dataclasses
 ├── model/
-│   ├── sarimax_model.py         # SARIMAX training, forecasting, month-aware fallback exog
-│   └── retraining.py            # Automatic retraining pipeline + EDA ingestion
+│   ├── sarimax_model.py         # SARIMAX training, forecasting, fallback exog
+│   └── retraining.py            # Retraining pipeline + EDA ingestion
 ├── storage/
-│   ├── db.py                    # SQLite schema and connection helpers
-│   ├── vector_store.py          # ChromaDB forecast document store (sentence-transformers)
+│   ├── db.py                    # SQLite schema (monthly_bill_records, data_entry_log,
+│   │                            #   chat_history, training_log)
+│   ├── vector_store.py          # ChromaDB forecast document store
 │   └── eda_store.py             # ChromaDB EDA summary store
 ├── rag/
 │   └── rag_service.py           # RAG orchestration — retrieval + Ollama streaming
+├── scraper/
+│   ├── meralco_rate.py          # Live Meralco residential rate scraper (cached 24h)
+│   ├── weather.py               # Open-Meteo monthly weather fetcher
+│   └── enso.py                  # NOAA ONI ENSO phase lookup
 ├── data/
-│   ├── eda.py                   # EDA script — generates relationship-oriented summaries
+│   ├── eda.py                   # EDA script — generates relationship summaries
 │   ├── ingest_eda.py            # Ingests eda_summaries.json into ChromaDB
-│   ├── generate_dataset.py      # Synthetic dataset generator
-│   ├── monthly_bills.csv        # Full extended dataset (2020–2024, 60 months)
+│   ├── generate_dataset.py      # Original synthetic dataset generator (2020–2024)
+│   ├── generate_synthetic_2022_2025.py  # Realistic PH synthetic dataset (2022–2025)
+│   ├── synthetic_2022_2025.csv  # Generated 48-month dataset
+│   ├── monthly_bills.csv        # Simple dataset (year_month, kwh, price only)
 │   └── test_bills.csv           # Minimal test dataset
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx              # Root component and layout
-│   │   ├── api/                 # Typed API client + TypeScript types
-│   │   └── components/
-│   │       ├── ChatPanel.tsx    # Streaming chat UI with auto-scroll
-│   │       ├── ForecastChart.tsx
-│   │       ├── UploadPanel.tsx
-│   │       ├── HorizonSelector.tsx
-│   │       ├── ModelEvaluation.tsx
-│   │       ├── HealthIndicator.tsx
-│   │       └── OfflineBanner.tsx
-│   ├── vite.config.ts           # Vite + PWA configuration
+│   │   ├── main.tsx             # Entry point — BrowserRouter + ThemeProvider + ForecastProvider
+│   │   ├── App.tsx              # Route table
+│   │   ├── api/
+│   │   │   ├── client.ts        # Typed API client (all endpoints)
+│   │   │   └── types.ts         # TypeScript interfaces mirroring Pydantic schemas
+│   │   ├── components/
+│   │   │   ├── AppShell.tsx     # Layout shell with sidebar + topbar + focus trap
+│   │   │   ├── Sidebar.tsx      # Fixed sidebar navigation
+│   │   │   ├── TopBar.tsx       # Page title + dark mode toggle + nav controls
+│   │   │   ├── ChatPanel.tsx    # Streaming chat UI with persistent history
+│   │   │   ├── ForecastChart.tsx # Bar chart (kWh) + line chart (bill) with CI
+│   │   │   ├── StatCard.tsx     # Color-coded stat card with icon
+│   │   │   ├── TrainModelPanel.tsx # Manual train button + status + model info
+│   │   │   ├── UploadPanel.tsx  # CSV upload (no auto-train)
+│   │   │   ├── HorizonSelector.tsx # 1/3/6/9/12m selector
+│   │   │   ├── ModelEvaluation.tsx # MAPE, order, training window display
+│   │   │   ├── HealthIndicator.tsx # Subsystem status dots
+│   │   │   ├── ModelStatusPill.tsx # Model active/trained status
+│   │   │   ├── AnomalyCard.tsx  # Anomaly alert banner
+│   │   │   ├── DarkModeToggle.tsx
+│   │   │   └── OfflineBanner.tsx
+│   │   ├── context/
+│   │   │   ├── ForecastContext.tsx # Shared forecast state
+│   │   │   └── ThemeContext.tsx    # Dark/light theme state
+│   │   ├── pages/
+│   │   │   ├── DashboardPage.tsx   # Stat cards + anomaly + chart
+│   │   │   ├── ForecastPage.tsx    # Horizon selector + forecast charts
+│   │   │   ├── AskPage.tsx         # Full-height chat panel
+│   │   │   ├── DataEntryPage.tsx   # Manual entry + upload + train + history
+│   │   │   ├── PriceCalculatorPage.tsx # Meralco bill calculator
+│   │   │   └── RecommendationsPage.tsx # Placeholder
+│   │   ├── styles/
+│   │   │   ├── tokens.css       # CSS custom properties (light + dark themes)
+│   │   │   └── index.css        # Global reset, .card, .btn-*, layout classes
+│   │   └── test/                # Vitest unit and property-based tests
 │   └── package.json
-├── tests/                       # pytest + vitest test suites
+├── tests/                       # pytest test suites
+│   ├── api/
+│   ├── model/
+│   ├── rag/
+│   ├── storage/
+│   └── integration/
 └── requirements.txt
 ```
+
+---
+
+## API endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/upload` | Ingest a CSV bill dataset |
+| `POST` | `/forecast` | Generate SARIMAX forecast (horizon 1/3/6/9/12) |
+| `POST` | `/ask` | Streaming RAG answer (SSE) |
+| `POST` | `/retrain` | Manually trigger full model retrain |
+| `GET` | `/status` | Background training state (idle/running/done/failed) |
+| `GET` | `/model-info` | MAPE, order, training window, accuracy rating |
+| `GET` | `/health` | Subsystem health check |
+| `GET` | `/data-entries` | All entry history rows |
+| `POST` | `/data-entries` | Create a manual entry |
+| `PUT` | `/data-entries/{id}` | Update kWh or bill amount |
+| `DELETE` | `/data-entries/{id}` | Delete one entry |
+| `DELETE` | `/data/all` | Wipe all data and model artefact |
+| `GET` | `/chat-history` | Last 100 chat messages |
+| `POST` | `/chat-history` | Persist a chat message |
+| `DELETE` | `/chat-history` | Clear all chat history |
+| `GET` | `/meralco-rate` | Current Meralco rate schedule (cached 24h) |
+| `POST` | `/meralco-rate/refresh` | Force-refresh Meralco rate |
 
 ---
 
@@ -285,50 +390,34 @@ npm test
 
 ---
 
-## Health check
-
-With the backend running, visit `http://localhost:8000/health`:
-
-```json
-{
-  "status": "ok",
-  "subsystems": {
-    "data_pipeline": "operational",
-    "sarimax_model": "operational",
-    "vector_store": "operational",
-    "llm_service": "operational"
-  },
-  "model_trained_at": "2025-06-21T10:30:00+00:00",
-  "last_upload_at": "2025-06-21T10:29:45+00:00"
-}
-```
-
-`llm_service` shows `"degraded"` if Ollama is not running — upload, forecast, and health all still work normally.
-
----
-
 ## Troubleshooting
 
 **`ModuleNotFoundError` on startup**  
-Run `pip install -r requirements.txt` and make sure your virtual environment is activated. Always start uvicorn from the project root.
+Run `pip install -r requirements.txt` and ensure your virtual environment is activated. Always start uvicorn from the project root.
 
-**`SARIMAX artefact not found` on /forecast**  
-Upload a CSV first. The model trains automatically after a successful upload. Check `/status` to see if training is still running.
+**`SARIMAX artefact not found` / forecast returns 503**  
+Upload data first, then click **Train Model** on the Data Entry page. Check `/status` to see if training is still running.
 
-**Forecast shows 0.0 kWh for all months**  
-This was a known issue where the fallback exogenous values defaulted to all zeros. It is fixed — the model now uses month-aware historical seasonality and Philippine climate priors. Re-upload your CSV to retrain with the fix applied.
+**Forecast months start from 2024 instead of the current date**  
+This was caused by the training window using the 80% split end instead of the full dataset end. Fixed — re-train after uploading your latest data.
 
 **Chat returns "LLM service unavailable"**  
-Ollama is not running. Start it with `ollama serve` or check that it is running as a background service. Make sure `qwen3:1.7b` has been pulled with `ollama pull qwen3:1.7b`.
+Ollama is not running. Start it with `ollama serve` or verify it is running as a background service. Pull the model with `ollama pull qwen3:1.7b`.
 
-**Chat answer is overly long or uses technical headings**  
-The RAG prompt has been updated to produce plain conversational answers. If you see old-style structured output, restart the backend to reload the updated prompt.
+**Chat answer uses headers, bullet lists, or emoji**  
+Restart the backend to reload the updated system prompt which enforces plain conversational output.
 
-**Chat panel doesn't scroll as the answer streams in**  
-Fixed — the chat now uses a `ResizeObserver` to track container height changes and scroll automatically as each token arrives.
+**Delete or Edit buttons do nothing**  
+This was a CORS issue — `DELETE` and `PUT` were missing from the allowed methods. Fixed — restart the backend.
 
-**Frontend shows blank page**  
-Make sure the backend is running on port 8000 before opening the frontend. Check the browser console for CORS errors.
+**Bill column shows `—` after manual entry**  
+The backend now backfills `bill_amount` with the computed price (kWh × resolved Meralco rate). Restart the backend and re-submit the entry.
+
+**CSV upload rows not appearing in Entry History**  
+CSV rows are now mirrored to `data_entry_log` after a successful upload. Re-upload your CSV after restarting the backend.
+
+**Frontend shows blank page or CORS error**  
+Ensure the backend is running on port 8000 before opening the frontend.
 
 **Forecast looks flat or inaccurate**  
-The model needs enough seasonal variation to learn from. Use at least 24 months of data spanning more than one year. Including the full set of exogenous columns (temperature, rainfall, El Niño, etc.) significantly improves accuracy.
+Use at least 24 months of data spanning more than one calendar year. Including exogenous columns (temperature, rainfall, El Niño) significantly improves accuracy.

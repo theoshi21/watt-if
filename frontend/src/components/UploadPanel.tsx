@@ -48,7 +48,23 @@ export const UploadPanel: React.FC<Props> = ({ onUploadSuccess }) => {
 
   return (
     <section className="card" aria-label="Upload CSV">
-      <h2 style={{ margin: '0 0 0.5rem' }}>Upload Bill Data</h2>
+      <h2 style={{
+        margin: '0 0 0.2rem',
+        fontFamily: 'var(--font-sans)',
+        fontSize: '1rem',
+        fontWeight: 600,
+        color: 'var(--color-text-primary)',
+      }}>
+        Upload Bill Data
+      </h2>
+      <p style={{
+        margin: '0 0 1rem',
+        fontFamily: 'var(--font-sans)',
+        fontSize: '0.78rem',
+        color: 'var(--color-text-muted)',
+      }}>
+        Upload a monthly electricity bill CSV. Rate, weather, and ENSO columns are optional.
+      </p>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <label
           htmlFor="csv-upload"
