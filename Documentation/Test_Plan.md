@@ -34,6 +34,11 @@ The following screens, forms, buttons, and components are in scope for testing:
 - **Dark/light mode toggle** — theme switch, persistence across page refreshes
 - **Navigation sidebar** — links to all five pages, active state highlighting, mobile hamburger menu
 - **Health indicator** — status dots for all subsystems (backend, model, Ollama, data)
+- **Registration form** (Registration page) — email input, password input, confirm-password input, submit button, validation messages
+- **Login form** (Login page) — email input, password input, submit button, error display, link to Registration
+- **Logout action** (Sidebar) — logout button, token clearance, redirect to Login
+- **Session persistence mechanism** — JWT token storage in localStorage, token validation on page load, automatic re-login for Default Account
+- **Data isolation behavior** — per-user bill records, per-user trained model, per-user chat history, cross-user access prevention
 
 ---
 
@@ -76,6 +81,14 @@ The following screens, forms, buttons, and components are in scope for testing:
 - Forecast chart: renders correctly
 - Loading state: skeleton shown while data is loading
 - Empty state: appropriate message when no forecast is available
+
+### Account System
+- Registration: valid email and password creates account, duplicate email rejected, password under 8 chars rejected, invalid email format rejected, mismatched confirm-password prevents submission
+- Login: correct credentials grant access, wrong password shows generic error, non-existent email shows same generic error, rate limiting after 10 failed attempts
+- Logout: token cleared from localStorage, redirect to Login page, graceful handling when network is unavailable
+- Session persistence: token survives page refresh, expired token forces re-login, API 401 triggers session clearance
+- Data isolation: users cannot see each other's data entries, chat history is per-user, trained models are per-user, cross-user edit/delete returns 403
+- Error handling: unauthenticated access redirects to Login, authenticated users cannot access Login/Register pages, password change validates current password, password change validates new password requirements
 
 ### UI/UX
 - Dark/light mode: toggle switches theme, preference persists after reload
@@ -125,6 +138,7 @@ For UI/UX and navigation tests, a combination of visual inspection and interacti
 | **Chat** | Messages are sent successfully; responses stream and complete without errors; history loads correctly | Message fails to send, response is never delivered, or page crashes |
 | **Price Calculator** | Bill total and per-component breakdown match the expected calculation for the given kWh and rate | Any component shows an incorrect value or the total doesn't match the sum of components |
 | **General (all areas)** | — | Any unhandled JavaScript exception, blank white screen, or application crash constitutes an automatic fail |
+| **Account/Authentication** | Registration creates account and auto-logs in; login returns valid JWT; logout clears token and redirects; session persists across refresh; each user sees only their own data entries, models, and chat history; cross-user access returns 403 | Registration allows duplicate emails; login leaks whether email exists; logout leaves token in storage; expired token grants access; one user's data is visible to another; cross-user mutation succeeds |
 
 ---
 
@@ -154,6 +168,7 @@ Testing will be carried out in the following order:
 6. **Execute Price Calculator test cases** — run TC-073 through TC-083 (input handling, rate loading, bracket selection, bill breakdown)
 7. **Execute Dashboard test cases** — run TC-084 through TC-092 (stat cards, anomaly card, chart, loading skeleton)
 8. **Execute UI/UX test cases** — run TC-093 through TC-103 (dark mode, sidebar, mobile, health indicator, offline banner)
-9. **Log defects** — record all failures in the Notes column and file detailed defect reports in the issue tracker
-10. **Re-test defects after fixes** — once a developer has addressed a defect, re-run the corresponding test case and update the Status column
-11. **Compile test evaluation report** — summarize results, list any outstanding defects, and provide a recommendation on release readiness
+9. **Execute Account System test cases** — run ACT-01 through ACT-22 (registration, login, logout, session persistence, data isolation, error handling)
+10. **Log defects** — record all failures in the Notes column and file detailed defect reports in the issue tracker
+11. **Re-test defects after fixes** — once a developer has addressed a defect, re-run the corresponding test case and update the Status column
+12. **Compile test evaluation report** — summarize results, list any outstanding defects, and provide a recommendation on release readiness
