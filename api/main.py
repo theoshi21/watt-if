@@ -50,6 +50,8 @@ from api.schemas import (
     SavedForecastResponse,
     SaveForecastRequest,
     UploadResponse,
+    UserSettingsResponse,
+    UserSettingsUpdate,
 )
 from model.sarimax_model import SARIMAXModel
 from pipeline.data_pipeline import DataPipeline
@@ -483,12 +485,35 @@ async def upload_csv(file: UploadFile = File(...), current_user: dict = Depends(
     finally:
         conn.close()
 
-    # Upload succeeded — do NOT auto-retrain. User must click Train Model.
+    # Upload succeeded — check user's auto-retrain preference.
+    should_retrain = False
+    conn2 = _get_db_conn()
+    try:
+        settings_row = conn2.execute(
+            "SELECT auto_retrain_on_upload, min_datapoints_to_train "
+            "FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if settings_row and settings_row["auto_retrain_on_upload"]:
+            # Check minimum data points
+            count_row = conn2.execute(
+                "SELECT COUNT(*) as cnt FROM monthly_bill_records WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            if count_row and count_row["cnt"] >= settings_row["min_datapoints_to_train"]:
+                should_retrain = True
+    finally:
+        conn2.close()
+
+    if should_retrain:
+        _training_states[user_id] = {"status": "running", "error": None}
+        _training_executor.submit(_run_retraining_background, None, user_id)
+
     return UploadResponse(
         rows_received=result.row_count,
         validation_status=result.validation_status,
         cleaning_report=result.cleaning_report,
-        retraining_triggered=False,
+        retraining_triggered=should_retrain,
     )
 
 
@@ -513,6 +538,8 @@ async def retrain(current_user: dict = Depends(get_current_user)) -> JSONRespons
     Unlike the automatic trigger (which only fires when a new calendar month is
     detected), this endpoint retrains regardless — useful after data corrections
     or when the artefact has been deleted.
+
+    Respects the user's min_datapoints_to_train setting.
     """
     user_id = current_user["id"]
     user_state = _get_training_state(user_id)
@@ -520,6 +547,32 @@ async def retrain(current_user: dict = Depends(get_current_user)) -> JSONRespons
         return JSONResponse(
             status_code=409,
             content={"detail": "Training already in progress."},
+        )
+
+    # Check minimum data points from user settings
+    conn = _get_db_conn()
+    try:
+        settings_row = conn.execute(
+            "SELECT min_datapoints_to_train FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        min_points = settings_row["min_datapoints_to_train"] if settings_row else 12
+
+        count_row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM monthly_bill_records WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        actual_count = count_row["cnt"] if count_row else 0
+    finally:
+        conn.close()
+
+    if actual_count < min_points:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": f"Not enough data to train. You have {actual_count} month(s) "
+                          f"but need at least {min_points}. Adjust this in Settings."
+            },
         )
 
     # Pass None as previous_latest so the new-month guard in check_and_retrain
@@ -656,7 +709,38 @@ async def forecast(request: ForecastRequest, current_user: dict = Depends(get_cu
             except Exception as exc2:
                 logger.error("Retry upsert failed for %s: %s — continuing.", doc_id, exc2)
 
-    return ForecastResponse(horizon=request.horizon, months=months)
+    # Check notification thresholds from user settings
+    warnings: list[str] = []
+    conn_w = _get_db_conn()
+    try:
+        settings_row = conn_w.execute(
+            "SELECT notify_kwh_budget, notify_bill_ceiling, notify_high_consumption "
+            "FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if settings_row:
+            kwh_budget = settings_row["notify_kwh_budget"]
+            bill_ceiling = settings_row["notify_bill_ceiling"]
+            high_consumption = settings_row["notify_high_consumption"]
+            for fm in months:
+                if kwh_budget and fm.kwh_forecast > kwh_budget:
+                    warnings.append(
+                        f"{fm.year_month}: Forecasted {fm.kwh_forecast:.0f} kWh exceeds your budget of {kwh_budget:.0f} kWh"
+                    )
+                if bill_ceiling and fm.price_forecast > bill_ceiling:
+                    warnings.append(
+                        f"{fm.year_month}: Forecasted ₱{fm.price_forecast:.2f} exceeds your ceiling of ₱{bill_ceiling:.2f}"
+                    )
+                if high_consumption and fm.kwh_forecast > high_consumption:
+                    warnings.append(
+                        f"{fm.year_month}: High consumption alert — {fm.kwh_forecast:.0f} kWh exceeds {high_consumption:.0f} kWh threshold"
+                    )
+    except Exception:
+        pass  # Non-critical — don't fail the forecast
+    finally:
+        conn_w.close()
+
+    return ForecastResponse(horizon=request.horizon, months=months, warnings=warnings)
 
 
 # ---------------------------------------------------------------------------
@@ -910,16 +994,29 @@ def _weekend_count_for_month(year: int, month: int) -> int:
     )
 
 
-def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection) -> float:
+def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, user_id: int | None = None) -> float:
     """Resolve the best available Meralco rate for a given year_month.
 
     Priority:
+      0. User's rate_override from settings (if set)
       1. Live scraped rate (if year_month is the current or recent month)
       2. Exact match in monthly_bill_records for that year_month
       3. Most recent rate in monthly_bill_records
       4. Hardcoded default (₱11.80/kWh)
     """
     from scraper.meralco_rate import get_rate as _get_rate
+
+    # Check user's rate override from settings
+    if user_id is not None:
+        settings_row = conn.execute(
+            "SELECT rate_override FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if settings_row and settings_row["rate_override"] is not None:
+            logger.info(
+                "Using user rate override ₱%.4f/kWh for %s.", settings_row["rate_override"], year_month
+            )
+            return float(settings_row["rate_override"])
 
     now = datetime.now(timezone.utc)
     current_ym = f"{now.year:04d}-{now.month:02d}"
@@ -961,6 +1058,7 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection) -
 def _resolve_exog_for_month(
     year_month: str,
     conn: sqlite3.Connection,
+    user_id: int | None = None,
 ) -> dict[str, float]:
     """Build the best possible exogenous variable values for a given year_month.
 
@@ -968,7 +1066,7 @@ def _resolve_exog_for_month(
       1. Open-Meteo API — real historical or forecast data for Manila
          (falls back gracefully to PAGASA priors if offline)
 
-    Meralco rate uses its own priority chain (live scrape → DB exact → DB latest → default).
+    Meralco rate uses its own priority chain (user override → live scrape → DB exact → DB latest → default).
     Weekend count is always computed from the real calendar.
     is_el_nino is always 0 (cannot be determined automatically at entry time).
     """
@@ -996,7 +1094,7 @@ def _resolve_exog_for_month(
     is_el_nino = float(_get_el_nino(year_month))
 
     return {
-        "meralco_rate":      _resolve_meralco_rate_for_month(year_month, conn),
+        "meralco_rate":      _resolve_meralco_rate_for_month(year_month, conn, user_id=user_id),
         "avg_temperature":   weather.avg_temperature,
         "avg_humidity":      weather.avg_humidity,
         "total_rainfall_mm": weather.total_rainfall_mm,
@@ -1022,7 +1120,7 @@ def _bridge_entry_to_bill_records(
     If rate_override is provided it is used directly instead of the auto-resolved rate.
     If bill_amount is provided it is used as price; otherwise price = kwh × rate.
     """
-    exog = _resolve_exog_for_month(year_month, conn)
+    exog = _resolve_exog_for_month(year_month, conn, user_id=user_id)
 
     # Rate: explicit override beats auto-resolved
     if rate_override is not None and rate_override > 0:
@@ -1518,4 +1616,150 @@ async def health() -> JSONResponse:
             "model_trained_at": model_trained_at,
             "last_upload_at": last_upload_at,
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /settings  — retrieve user preferences
+# ---------------------------------------------------------------------------
+
+@app.get("/settings", response_model=UserSettingsResponse)
+async def get_settings(current_user: dict = Depends(get_current_user)) -> UserSettingsResponse:
+    """Return the authenticated user's settings, creating defaults if none exist."""
+    user_id = current_user["id"]
+    conn = _get_db_conn()
+    try:
+        row = conn.execute(
+            "SELECT customer_type, default_forecast_horizon, rate_override, "
+            "chat_max_history, chat_auto_clear, notify_kwh_budget, "
+            "notify_bill_ceiling, notify_high_consumption, "
+            "auto_retrain_on_upload, min_datapoints_to_train "
+            "FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+        if row is None:
+            # Seed default settings for this user
+            now = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "INSERT INTO user_settings (user_id, updated_at) VALUES (?, ?)",
+                (user_id, now),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT customer_type, default_forecast_horizon, rate_override, "
+                "chat_max_history, chat_auto_clear, notify_kwh_budget, "
+                "notify_bill_ceiling, notify_high_consumption, "
+                "auto_retrain_on_upload, min_datapoints_to_train "
+                "FROM user_settings WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+    finally:
+        conn.close()
+
+    return UserSettingsResponse(
+        customer_type=row["customer_type"],
+        default_forecast_horizon=row["default_forecast_horizon"],
+        rate_override=row["rate_override"],
+        chat_max_history=row["chat_max_history"],
+        chat_auto_clear=bool(row["chat_auto_clear"]),
+        notify_kwh_budget=row["notify_kwh_budget"],
+        notify_bill_ceiling=row["notify_bill_ceiling"],
+        notify_high_consumption=row["notify_high_consumption"],
+        auto_retrain_on_upload=bool(row["auto_retrain_on_upload"]),
+        min_datapoints_to_train=row["min_datapoints_to_train"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# PUT /settings  — update user preferences
+# ---------------------------------------------------------------------------
+
+@app.put("/settings", response_model=UserSettingsResponse)
+async def update_settings(body: UserSettingsUpdate, current_user: dict = Depends(get_current_user)) -> UserSettingsResponse:
+    """Update the authenticated user's settings. Only provided fields are changed."""
+    user_id = current_user["id"]
+    conn = _get_db_conn()
+    try:
+        # Ensure row exists
+        existing = conn.execute(
+            "SELECT user_id FROM user_settings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        now = datetime.now(timezone.utc).isoformat()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO user_settings (user_id, updated_at) VALUES (?, ?)",
+                (user_id, now),
+            )
+            conn.commit()
+
+        # Build SET clause dynamically for provided fields only
+        updates: list[str] = []
+        params: list = []
+
+        if body.customer_type is not None:
+            updates.append("customer_type = ?")
+            params.append(body.customer_type)
+        if body.default_forecast_horizon is not None:
+            updates.append("default_forecast_horizon = ?")
+            params.append(body.default_forecast_horizon)
+        if "rate_override" in body.model_fields_set:
+            updates.append("rate_override = ?")
+            # Treat 0 as "disabled" → store as NULL
+            params.append(body.rate_override if body.rate_override else None)
+        if body.chat_max_history is not None:
+            updates.append("chat_max_history = ?")
+            params.append(body.chat_max_history)
+        if body.chat_auto_clear is not None:
+            updates.append("chat_auto_clear = ?")
+            params.append(1 if body.chat_auto_clear else 0)
+        if "notify_kwh_budget" in body.model_fields_set:
+            updates.append("notify_kwh_budget = ?")
+            params.append(body.notify_kwh_budget if body.notify_kwh_budget else None)
+        if "notify_bill_ceiling" in body.model_fields_set:
+            updates.append("notify_bill_ceiling = ?")
+            params.append(body.notify_bill_ceiling if body.notify_bill_ceiling else None)
+        if "notify_high_consumption" in body.model_fields_set:
+            updates.append("notify_high_consumption = ?")
+            params.append(body.notify_high_consumption if body.notify_high_consumption else None)
+        if body.auto_retrain_on_upload is not None:
+            updates.append("auto_retrain_on_upload = ?")
+            params.append(1 if body.auto_retrain_on_upload else 0)
+        if body.min_datapoints_to_train is not None:
+            updates.append("min_datapoints_to_train = ?")
+            params.append(body.min_datapoints_to_train)
+
+        if updates:
+            updates.append("updated_at = ?")
+            params.append(now)
+            params.append(user_id)
+            conn.execute(
+                f"UPDATE user_settings SET {', '.join(updates)} WHERE user_id = ?",
+                params,
+            )
+            conn.commit()
+
+        # Re-fetch and return
+        row = conn.execute(
+            "SELECT customer_type, default_forecast_horizon, rate_override, "
+            "chat_max_history, chat_auto_clear, notify_kwh_budget, "
+            "notify_bill_ceiling, notify_high_consumption, "
+            "auto_retrain_on_upload, min_datapoints_to_train "
+            "FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return UserSettingsResponse(
+        customer_type=row["customer_type"],
+        default_forecast_horizon=row["default_forecast_horizon"],
+        rate_override=row["rate_override"],
+        chat_max_history=row["chat_max_history"],
+        chat_auto_clear=bool(row["chat_auto_clear"]),
+        notify_kwh_budget=row["notify_kwh_budget"],
+        notify_bill_ceiling=row["notify_bill_ceiling"],
+        notify_high_consumption=row["notify_high_consumption"],
+        auto_retrain_on_upload=bool(row["auto_retrain_on_upload"]),
+        min_datapoints_to_train=row["min_datapoints_to_train"],
     )

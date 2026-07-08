@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { getSettings, clearChatHistory } from '../api/client'
 
 const TOKEN_KEY = 'wattif_token'
 
@@ -165,9 +166,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const logout = (): void => {
-    localStorage.removeItem(TOKEN_KEY)
-    setToken(null)
-    setUser(null)
+    // Check if auto-clear chat is enabled and clear before removing token
+    getSettings()
+      .then(s => {
+        if (s.chat_auto_clear) {
+          return clearChatHistory()
+        }
+      })
+      .catch(() => { /* non-critical — proceed with logout */ })
+      .finally(() => {
+        localStorage.removeItem(TOKEN_KEY)
+        setToken(null)
+        setUser(null)
+      })
   }
 
   return (

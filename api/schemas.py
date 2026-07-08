@@ -38,6 +38,7 @@ class ForecastResponse(BaseModel):
 
     horizon: int
     months: list[ForecastMonth]
+    warnings: list[str] = Field(default_factory=list, description="Threshold warnings from user settings")
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -208,3 +209,47 @@ class SaveForecastRequest(BaseModel):
 
     horizon: int
     months: list[dict]
+
+
+class UserSettingsResponse(BaseModel):
+    """Response body for GET /settings."""
+
+    customer_type: str
+    default_forecast_horizon: int
+    rate_override: float | None
+    chat_max_history: int
+    chat_auto_clear: bool
+    notify_kwh_budget: float | None
+    notify_bill_ceiling: float | None
+    notify_high_consumption: float | None
+    auto_retrain_on_upload: bool
+    min_datapoints_to_train: int
+
+
+class UserSettingsUpdate(BaseModel):
+    """Request body for PUT /settings — all fields optional."""
+
+    customer_type: str | None = Field(default=None, description="Residential | General Service A | General Service B")
+    default_forecast_horizon: int | None = Field(default=None, description="1, 3, 6, 9, or 12")
+    rate_override: float | None = Field(default=None, ge=0, description="Manual ₱/kWh override; 0 or null to disable")
+    chat_max_history: int | None = Field(default=None, ge=10, le=500)
+    chat_auto_clear: bool | None = None
+    notify_kwh_budget: float | None = Field(default=None, ge=0, description="Monthly kWh budget; 0 or null to disable")
+    notify_bill_ceiling: float | None = Field(default=None, ge=0, description="Bill ceiling ₱; 0 or null to disable")
+    notify_high_consumption: float | None = Field(default=None, ge=0, description="High consumption threshold kWh; 0 or null to disable")
+    auto_retrain_on_upload: bool | None = None
+    min_datapoints_to_train: int | None = Field(default=None, ge=3, le=60)
+
+    @field_validator("customer_type")
+    @classmethod
+    def validate_customer_type(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("Residential", "General Service A", "General Service B"):
+            raise ValueError("customer_type must be 'Residential', 'General Service A', or 'General Service B'")
+        return v
+
+    @field_validator("default_forecast_horizon")
+    @classmethod
+    def validate_horizon(cls, v: int | None) -> int | None:
+        if v is not None and v not in (1, 3, 6, 9, 12):
+            raise ValueError("default_forecast_horizon must be 1, 3, 6, 9, or 12")
+        return v

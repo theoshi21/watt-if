@@ -39,6 +39,7 @@ export interface UploadResponse {
 export interface ForecastResponse {
   horizon: number;
   months: ForecastMonth[];
+  warnings?: string[];
 }
 
 export interface AskResponse {
@@ -144,4 +145,30 @@ export interface MeralcoRateResponse {
   fetched_at: string;
   is_fallback: boolean;
   effective_month: string;
+}
+
+export interface UserSettings {
+  customer_type: 'Residential' | 'General Service A' | 'General Service B';
+  default_forecast_horizon: Horizon;
+  rate_override: number | null;
+  chat_max_history: number;
+  chat_auto_clear: boolean;
+  notify_kwh_budget: number | null;
+  notify_bill_ceiling: number | null;
+  notify_high_consumption: number | null;
+  auto_retrain_on_upload: boolean;
+  min_datapoints_to_train: number;
+}
+
+export interface UserSettingsUpdate {
+  customer_type?: string;
+  default_forecast_horizon?: number;
+  rate_override?: number | null;
+  chat_max_history?: number;
+  chat_auto_clear?: boolean;
+  notify_kwh_budget?: number | null;
+  notify_bill_ceiling?: number | null;
+  notify_high_consumption?: number | null;
+  auto_retrain_on_upload?: boolean;
+  min_datapoints_to_train?: number;
 }

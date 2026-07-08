@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { getForecast, getTrainingStatus, getSavedForecast, saveForecast } from '../api/client'
+import { getForecast, getTrainingStatus, getSavedForecast, saveForecast, getSettings } from '../api/client'
 import type { ForecastMonth, Horizon } from '../api/types'
 
 interface ForecastContextValue {
@@ -7,6 +7,7 @@ interface ForecastContextValue {
   horizon: Horizon
   loading: boolean
   error: string | null
+  warnings: string[]
   setHorizon: (h: Horizon) => void
   loadForecast: (h: Horizon) => Promise<void>
   setMonths: (m: ForecastMonth[]) => void
@@ -19,13 +20,18 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [months, setMonths] = useState<ForecastMonth[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
 
   const loadForecast = useCallback(async (h: Horizon) => {
     setLoading(true)
     setError(null)
+    setWarnings([])
     try {
       const res = await getForecast(h)
       setMonths(res.months)
+      if (res.warnings && res.warnings.length > 0) {
+        setWarnings(res.warnings)
+      }
       // Persist forecast to the user's account in the background
       saveForecast(h, res.months).catch(() => {
         // Non-critical — silently ignore save failures
@@ -44,11 +50,23 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [])
 
   // On mount: try to restore the user's saved forecast first, then fall back
-  // to generating a fresh 3-month forecast.
+  // to generating a fresh forecast using the user's preferred horizon.
   useEffect(() => {
     const checkAndLoad = async () => {
       // Skip if we already have months in state (navigating back to Dashboard)
       if (months.length > 0) return
+
+      // Load user's preferred default horizon from settings
+      let defaultHorizon: Horizon = 3
+      try {
+        const settings = await getSettings()
+        if ([1, 3, 6, 9, 12].includes(settings.default_forecast_horizon)) {
+          defaultHorizon = settings.default_forecast_horizon as Horizon
+          setHorizon(defaultHorizon)
+        }
+      } catch {
+        // Settings unavailable — use default 3
+      }
 
       // Try restoring the saved forecast from the backend
       try {
@@ -66,7 +84,7 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         const s = await getTrainingStatus()
         if (s.status !== 'running') {
-          await loadForecast(3)
+          await loadForecast(defaultHorizon)
         }
       } catch {
         // Backend not reachable yet — silently skip
@@ -81,6 +99,7 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     horizon,
     loading,
     error,
+    warnings,
     setHorizon,
     loadForecast,
     setMonths,

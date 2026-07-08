@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { getMeralcoRate, refreshMeralcoRate } from '../api/client'
+import { getMeralcoRate, refreshMeralcoRate, getSettings } from '../api/client'
 import type { MeralcoRateResponse, CustomerType, RateBracket } from '../api/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ export default function PriceCalculatorPage() {
   const [refreshing, setRefreshing] = useState(false)
 
   const [kwhInput, setKwhInput] = useState('')
-  // Customer type selection — defaults to Residential
+  // Customer type selection — defaults to user's saved preference (falls back to Residential)
   const [customerTypeKey, setCustomerTypeKey] = useState('Residential')
   // Bracket selection — 'auto' means auto-select based on kWh
   const [bracketKey, setBracketKey] = useState<string>('auto')
@@ -142,6 +142,10 @@ export default function PriceCalculatorPage() {
       .then(r => { setRateData(r); setRateError(null) })
       .catch(err => setRateError(err instanceof Error ? err.message : 'Failed to load rate.'))
       .finally(() => setRateLoading(false))
+    // Load user's preferred customer type from settings
+    getSettings()
+      .then(s => { if (s.customer_type) setCustomerTypeKey(s.customer_type) })
+      .catch(() => { /* settings unavailable — keep default */ })
   }, [])
 
   const handleRefresh = async () => {
@@ -249,8 +253,14 @@ export default function PriceCalculatorPage() {
               <div style={{ marginBottom: '0.875rem' }}>
                 <label htmlFor="calc-kwh" style={fieldLabel}>Monthly consumption</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <input id="calc-kwh" type="number" min={0} step="any" placeholder="e.g. 250"
-                    value={kwhInput} onChange={e => setKwhInput(e.target.value)}
+                  <input id="calc-kwh" type="number" min={0} max={99999} step="any" placeholder="e.g. 250"
+                    value={kwhInput} onChange={e => {
+                      const v = e.target.value
+                      if (v === '' || v === '-') { setKwhInput(v); return }
+                      const num = parseFloat(v)
+                      if (!isNaN(num) && num > 99999) { setKwhInput('99999'); return }
+                      setKwhInput(v)
+                    }}
                     aria-label="Monthly consumption in kWh" style={inputStyle} />
                   <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.9rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>kWh</span>
                 </div>

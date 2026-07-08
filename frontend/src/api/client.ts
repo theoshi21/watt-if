@@ -259,3 +259,17 @@ export async function saveForecast(horizon: number, months: import('./types').Fo
     body: JSON.stringify({ horizon, months }),
   })
 }
+
+/** GET /settings — fetch user preferences */
+export async function getSettings(): Promise<import('./types').UserSettings> {
+  return request<import('./types').UserSettings>('/settings')
+}
+
+/** PUT /settings — update user preferences (partial) */
+export async function updateSettings(settings: import('./types').UserSettingsUpdate): Promise<import('./types').UserSettings> {
+  return request<import('./types').UserSettings>('/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+}

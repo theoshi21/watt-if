@@ -148,8 +148,20 @@ function EditRow({ entry, onSave, onCancel }: EditRowProps) {
   return (
     <tr style={{ background: 'var(--color-input-fill)', outline: '2px solid var(--color-accent-primary)', outlineOffset: '-1px' }}>
       <td style={{ ...td, ...mono }}>{entry.year_month}</td>
-      <td style={td}><input type="number" value={kwh} onChange={e => setKwh(e.target.value)} style={miniInput} /></td>
-      <td style={td}><input type="number" value={bill} onChange={e => setBill(e.target.value)} style={miniInput} /></td>
+      <td style={td}><input type="number" min={0} max={99999} value={kwh} onChange={e => {
+        const v = e.target.value
+        if (v === '') { setKwh(v); return }
+        const num = parseFloat(v)
+        if (!isNaN(num) && num > 99999) { setKwh('99999'); return }
+        setKwh(v)
+      }} style={miniInput} /></td>
+      <td style={td}><input type="number" min={0} max={9999999} value={bill} onChange={e => {
+        const v = e.target.value
+        if (v === '') { setBill(v); return }
+        const num = parseFloat(v)
+        if (!isNaN(num) && num > 9999999) { setBill('9999999'); return }
+        setBill(v)
+      }} style={miniInput} /></td>
       <td style={{ ...td, ...muted }}>{entry.source}</td>
       <td style={{ ...td, ...mono, ...muted }}>{entry.meralco_rate != null ? `₱${entry.meralco_rate.toFixed(4)}` : '—'}</td>
       <td style={{ ...td, ...mono, ...muted }}>{entry.avg_temperature != null ? `${entry.avg_temperature.toFixed(1)}` : '—'}</td>
@@ -417,8 +429,14 @@ export function DataEntryPage() {
               <label htmlFor="r-kwh" style={fieldLabel}>
                 kWh <span style={{ color: 'var(--color-red)' }}>*</span>
               </label>
-              <input id="r-kwh" type="number" min={0} max={1000000} step="any"
-                value={kwh} onChange={e => setKwh(e.target.value)}
+              <input id="r-kwh" type="number" min={0} max={99999} step="any"
+                value={kwh} onChange={e => {
+                  const v = e.target.value
+                  if (v === '') { setKwh(v); return }
+                  const num = parseFloat(v)
+                  if (!isNaN(num) && num > 99999) { setKwh('99999'); return }
+                  setKwh(v)
+                }}
                 style={inputStyle} aria-invalid={!!kwhErr}
                 aria-describedby={kwhErr ? 'kwh-err' : undefined} />
               {kwhErr && <span id="kwh-err" role="alert" style={errorText}>{kwhErr}</span>}
