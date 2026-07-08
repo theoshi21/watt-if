@@ -39,6 +39,7 @@ The following screens, forms, buttons, and components are in scope for testing:
 - **Logout action** (Sidebar) — logout button, token clearance, redirect to Login
 - **Session persistence mechanism** — JWT token storage in localStorage, token validation on page load, automatic re-login for Default Account
 - **Data isolation behavior** — per-user bill records, per-user trained model, per-user chat history, cross-user access prevention
+- **Settings page** (Account/Settings page) — customer type dropdown, default forecast horizon dropdown, rate override input, chat max history input, chat auto-clear toggle, notification threshold inputs (kWh budget, bill ceiling, high consumption), auto-retrain toggle, minimum data points input, clear chat button, clear all data button
 
 ---
 
@@ -96,6 +97,18 @@ The following screens, forms, buttons, and components are in scope for testing:
 - Mobile responsiveness: hamburger menu opens/closes sidebar, overlay tap and Escape key close sidebar
 - Health indicator: all-green when all systems up, degraded when Ollama is offline
 - Offline banner: appears when network connection is lost
+
+### Settings
+- Customer type: dropdown saves selection, persists after page reload, pre-selects in Price Calculator
+- Default forecast horizon: dropdown saves selection, pre-selects in Forecast page on fresh load
+- Rate override: accepts valid ₱/kWh values (0–100), clears correctly, used in data entry resolution
+- Chat preferences: max history accepts 10–500, auto-clear toggle saves correctly
+- Data & privacy: clear chat requires confirmation and wipes chat, clear all requires confirmation and wipes everything
+- Notification thresholds: kWh budget (0–99,999), bill ceiling (0–999,999), and high consumption (0–99,999) save correctly
+- Model retraining: auto-retrain toggle saves, min data points accepts 3–60, retrain endpoint respects minimum
+- Input boundaries: all numeric inputs enforce min/max limits, values cannot go beyond screen
+- Settings persistence: all changes persist after page navigation and refresh
+- Settings API: GET /settings returns defaults for new user, PUT /settings accepts partial updates
 
 ---
 
@@ -169,9 +182,10 @@ Testing will be carried out in the following order:
 7. **Execute Dashboard test cases** — run TC-084 through TC-092 (stat cards, anomaly card, chart, loading skeleton)
 8. **Execute UI/UX test cases** — run TC-093 through TC-103 (dark mode, sidebar, mobile, health indicator, offline banner)
 9. **Execute Account System test cases** — run ACT-01 through ACT-22 (registration, login, logout, session persistence, data isolation, error handling)
-10. **Log defects** — record all failures in the Notes column and file detailed defect reports in the issue tracker
-11. **Re-test defects after fixes** — once a developer has addressed a defect, re-run the corresponding test case and update the Status column
-12. **Compile test evaluation report** — summarize results, list any outstanding defects, and provide a recommendation on release readiness
+10. **Execute Settings test cases** — run SET-01 through SET-15 (customer type, forecast horizon, rate override, chat preferences, notifications, model retraining, data privacy)
+11. **Log defects** — record all failures in the Notes column and file detailed defect reports in the issue tracker
+12. **Re-test defects after fixes** — once a developer has addressed a defect, re-run the corresponding test case and update the Status column
+13. **Compile test evaluation report** — summarize results, list any outstanding defects, and provide a recommendation on release readiness
 
 ---
 

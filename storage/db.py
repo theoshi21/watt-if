@@ -117,6 +117,23 @@ CREATE TABLE IF NOT EXISTS saved_forecasts (
 );
 """
 
+_DDL_USER_SETTINGS = """
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id                  INTEGER PRIMARY KEY REFERENCES users(id),
+    customer_type            TEXT NOT NULL DEFAULT 'Residential',
+    default_forecast_horizon INTEGER NOT NULL DEFAULT 3,
+    rate_override            REAL,
+    chat_max_history         INTEGER NOT NULL DEFAULT 100,
+    chat_auto_clear          INTEGER NOT NULL DEFAULT 0,
+    notify_kwh_budget        REAL,
+    notify_bill_ceiling      REAL,
+    notify_high_consumption  REAL,
+    auto_retrain_on_upload   INTEGER NOT NULL DEFAULT 0,
+    min_datapoints_to_train  INTEGER NOT NULL DEFAULT 12,
+    updated_at               TEXT NOT NULL
+);
+"""
+
 _ALL_DDL = [
     _DDL_MONTHLY_BILL_RECORDS,
     _DDL_DAILY_AGGREGATES,
@@ -126,6 +143,7 @@ _ALL_DDL = [
     _DDL_CHAT_HISTORY,
     _DDL_USERS,
     _DDL_SAVED_FORECASTS,
+    _DDL_USER_SETTINGS,
 ]
 
 

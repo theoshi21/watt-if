@@ -5,7 +5,7 @@ import { ForecastChart } from '../components/ForecastChart'
 import type { Horizon } from '../api/types'
 
 export default function ForecastPage() {
-  const { months, horizon, loading, error, loadForecast, setHorizon } = useForecast()
+  const { months, horizon, loading, error, warnings, loadForecast, setHorizon } = useForecast()
 
   useEffect(() => {
     if (months.length === 0) {
@@ -31,6 +31,26 @@ export default function ForecastPage() {
         </p>
       )}
       {error && !is503 && <p role="alert">{error}</p>}
+      {!loading && !error && warnings.length > 0 && (
+        <div
+          role="alert"
+          style={{
+            padding: '0.75rem 1rem',
+            background: 'var(--color-rating-fair-bg)',
+            border: '1px solid var(--color-rating-fair-border)',
+            borderRadius: '0.5rem',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '0.82rem',
+            color: 'var(--color-rating-fair-text)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.3rem',
+          }}
+        >
+          <strong style={{ fontSize: '0.85rem' }}>⚠️ Budget Alerts</strong>
+          {warnings.map((w, i) => <span key={i}>• {w}</span>)}
+        </div>
+      )}
       {!loading && !error && months.length > 0 && <ForecastChart months={months} />}
     </div>
   )

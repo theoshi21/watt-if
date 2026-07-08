@@ -50,7 +50,16 @@ Upload your monthly electricity bill history as a CSV or enter readings manually
 - **Change password** — requires current password confirmation
 - **Per-user data isolation** — all data (bills, entries, forecasts, chat history, models) is scoped to the authenticated user
 - **Auth guard** — all app pages redirect to login if unauthenticated
-- **Account settings page** — change password from the sidebar
+
+### Settings
+- **Customer type** — Residential, General Service A, or General Service B; pre-selects in the Price Calculator
+- **Default forecast horizon** — 1, 3, 6, 9, or 12 months; pre-selects on the Forecast page
+- **Electricity rate override** — manual ₱/kWh rate that bypasses the live Meralco scraper
+- **Chat preferences** — max message history (10–500) and auto-clear chat on logout
+- **Notification thresholds** — monthly kWh budget, bill ceiling (₱), and high consumption warning; triggers alerts on the Forecast page when exceeded
+- **Model retraining** — auto-retrain on CSV upload toggle and configurable minimum data points before training (3–60)
+- **Data & privacy** — clear chat history and clear all data with confirmation steps
+- **Input boundaries** — all numeric inputs enforce max limits to prevent overflow (kWh: 99,999; bill: ₱999,999; rate: ₱100/kWh)
 
 ### UI & App Shell
 - **Multi-page layout** — sidebar navigation with Dashboard, Forecast, Ask WATT-IF, Price Calculator, Data Entry, and Account Settings routes
@@ -367,7 +376,8 @@ WATT-IF/
 │   └── retraining.py            # Retraining pipeline + EDA ingestion
 ├── storage/
 │   ├── db.py                    # SQLite schema (monthly_bill_records, data_entry_log,
-│   │                            #   chat_history, training_log, users, saved_forecasts)
+│   │                            #   chat_history, training_log, users, saved_forecasts,
+│   │                            #   user_settings)
 │   ├── vector_store.py          # ChromaDB forecast document store
 │   └── eda_store.py             # ChromaDB EDA summary store
 ├── rag/
@@ -416,7 +426,7 @@ WATT-IF/
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx       # Email + password login form
 │   │   │   ├── RegisterPage.tsx    # New account registration form
-│   │   │   ├── AccountSettingsPage.tsx # Change password
+│   │   │   ├── AccountSettingsPage.tsx # User settings (password, preferences, notifications)
 │   │   │   ├── DashboardPage.tsx   # Stat cards + anomaly + chart
 │   │   │   ├── ForecastPage.tsx    # Horizon selector + forecast charts
 │   │   │   ├── AskPage.tsx         # Full-height chat panel
@@ -469,6 +479,8 @@ WATT-IF/
 | `DELETE` | `/chat-history` | Clear all chat history |
 | `GET` | `/meralco-rate` | Current Meralco rate schedule (cached 24h) |
 | `POST` | `/meralco-rate/refresh` | Force-refresh Meralco rate |
+| `GET` | `/settings` | Retrieve user preferences |
+| `PUT` | `/settings` | Update user preferences (partial) |
 
 > All endpoints except `/auth/*`, `/meralco-rate`, and `/health` require a valid JWT in the `Authorization: Bearer <token>` header.
 
