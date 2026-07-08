@@ -18,11 +18,41 @@ import type {
   UploadResponse,
 } from './types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
+/**
+ * Resolve the API base URL dynamically:
+ * 1. If VITE_API_BASE is set explicitly in .env.local, use it.
+ * 2. Otherwise, use the auto-detected LAN IP injected at build/dev time.
+ * This means you never need to hardcode your machine's IP.
+ */
+declare const __LOCAL_IP__: string
+const BASE_URL =
+  import.meta.env.VITE_API_BASE ||
+  `http://${typeof __LOCAL_IP__ !== 'undefined' ? __LOCAL_IP__ : 'localhost'}:8000`
+const TOKEN_KEY = 'wattif_token'
+
+/** Read stored JWT and return auth headers if available */
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** Handle 401 responses by clearing the token.
+ * AuthGuard will detect the missing user state and redirect to /login
+ * without causing a full page reload (which would trigger auto-login loops).
+ */
+function handleUnauthorized(status: number): void {
+  if (status === 401) {
+    localStorage.removeItem(TOKEN_KEY)
+    // Dispatch a storage event so AuthContext can react to the token removal
+    window.dispatchEvent(new Event('auth-logout'))
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init)
+  const headers = { ...getAuthHeaders(), ...(init?.headers as Record<string, string>) }
+  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   if (!res.ok) {
+    handleUnauthorized(res.status)
     const body = await res.json().catch(() => ({}))
     const detail = (body as { detail?: string }).detail ?? res.statusText
     throw new Error(`${res.status}: ${detail}`)
@@ -55,11 +85,12 @@ export async function streamQuestion(
 ): Promise<void> {
   const res = await fetch(`${BASE_URL}/ask`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ question }),
   })
 
   if (!res.ok) {
+    handleUnauthorized(res.status)
     const body = await res.json().catch(() => ({}))
     const detail = (body as { detail?: string }).detail ?? res.statusText
     onError(`${res.status}: ${detail}`)
@@ -137,8 +168,9 @@ export async function triggerRetrain(): Promise<{ status: string }> {
 
 /** DELETE /data/all — permanently wipe all training data and the model artefact */
 export async function clearAllData(): Promise<void> {
-  const res = await fetch(`${BASE_URL}/data/all`, { method: 'DELETE' })
+  const res = await fetch(`${BASE_URL}/data/all`, { method: 'DELETE', headers: { ...getAuthHeaders() } })
   if (!res.ok) {
+    handleUnauthorized(res.status)
     const body = await res.json().catch(() => ({}))
     const detail = (body as { detail?: string }).detail ?? res.statusText
     throw new Error(`${res.status}: ${detail}`)
@@ -170,8 +202,9 @@ export async function updateDataEntry(id: number, update: DataEntryUpdate): Prom
 
 /** DELETE /data-entries/{id} — remove an entry */
 export async function deleteDataEntry(id: number): Promise<void> {
-  const res = await fetch(`${BASE_URL}/data-entries/${id}`, { method: 'DELETE' })
+  const res = await fetch(`${BASE_URL}/data-entries/${id}`, { method: 'DELETE', headers: { ...getAuthHeaders() } })
   if (!res.ok) {
+    handleUnauthorized(res.status)
     const body = await res.json().catch(() => ({}))
     const detail = (body as { detail?: string }).detail ?? res.statusText
     throw new Error(`${res.status}: ${detail}`)
@@ -194,8 +227,9 @@ export async function createChatMessage(msg: ChatMessageCreate): Promise<ChatMes
 
 /** DELETE /chat-history — wipe all chat messages from the database */
 export async function clearChatHistory(): Promise<void> {
-  const res = await fetch(`${BASE_URL}/chat-history`, { method: 'DELETE' })
+  const res = await fetch(`${BASE_URL}/chat-history`, { method: 'DELETE', headers: { ...getAuthHeaders() } })
   if (!res.ok) {
+    handleUnauthorized(res.status)
     const body = await res.json().catch(() => ({}))
     const detail = (body as { detail?: string }).detail ?? res.statusText
     throw new Error(`${res.status}: ${detail}`)
@@ -210,4 +244,18 @@ export async function getMeralcoRate(): Promise<MeralcoRateResponse> {
 /** POST /meralco-rate/refresh — force a fresh scrape, bypassing the 24h cache */
 export async function refreshMeralcoRate(): Promise<MeralcoRateResponse> {
   return request<MeralcoRateResponse>('/meralco-rate/refresh', { method: 'POST' })
+}
+
+/** GET /saved-forecast — load persisted forecast for the current user */
+export async function getSavedForecast(): Promise<{ horizon: number | null; months: import('./types').ForecastMonth[] | null; saved_at: string | null }> {
+  return request('/saved-forecast')
+}
+
+/** POST /saved-forecast — persist the current forecast for the user */
+export async function saveForecast(horizon: number, months: import('./types').ForecastMonth[]): Promise<void> {
+  await request('/saved-forecast', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ horizon, months }),
+  })
 }

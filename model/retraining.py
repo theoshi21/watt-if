@@ -207,12 +207,14 @@ class RetrainingService:
         feature_service: FeatureEngineeringService | None = None,
         vector_store: VectorStore | None = None,
         eda_store: EDAStore | None = None,
+        user_id: int | str | None = None,
     ) -> None:
         self._conn = db_conn
         self._model = model or SARIMAXModel()
         self._feature_service = feature_service or FeatureEngineeringService()
         self._vector_store = vector_store or VectorStore()
         self._eda_store = eda_store or EDAStore()
+        self._user_id = user_id
 
     # ------------------------------------------------------------------
     # Public interface
@@ -465,13 +467,13 @@ class RetrainingService:
                     ),
                 )
                 try:
-                    self._vector_store.upsert(doc)
+                    self._vector_store.upsert(doc, user_id=self._user_id)
                 except Exception as exc:
                     # Retry once (Req 4.7).
                     logger.warning(
                         "First upsert failed for %s; retrying. Error: %s", doc_id, exc
                     )
-                    self._vector_store.upsert(doc)
+                    self._vector_store.upsert(doc, user_id=self._user_id)
 
     def _run_and_ingest_eda(self, monthly_records: list) -> None:
         """Run EDA over *monthly_records* and upsert summaries into the EDA store.

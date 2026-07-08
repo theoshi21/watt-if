@@ -193,3 +193,18 @@ class ModelInfoResponse(BaseModel):
     training_window_start: str | None
     training_window_end: str | None
     rating: str | None                # "Excellent" / "Good" / "Fair" / "Poor"
+
+
+class SavedForecastResponse(BaseModel):
+    """Response body for GET /saved-forecast."""
+
+    horizon: int | None = None
+    months: list[dict] | None = None
+    saved_at: str | None = None
+
+
+class SaveForecastRequest(BaseModel):
+    """Request body for POST /saved-forecast — accepts partial month data from the frontend."""
+
+    horizon: int
+    months: list[dict]

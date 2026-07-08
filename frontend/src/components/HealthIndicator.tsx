@@ -64,9 +64,16 @@ export const HealthIndicator: React.FC = () => {
     }
 
     void check()
-    const interval = setInterval(check, 30_000)
+    // Poll more frequently (10s) when unreachable, normal interval (30s) when connected
+    const interval = setInterval(() => {
+      if (connState === 'unreachable' || connState === 'connecting') {
+        void check()
+      } else {
+        void check()
+      }
+    }, connState === 'unreachable' ? 10_000 : 30_000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [])
+  }, [connState])
 
   /* ── Connecting ─────────────────────────────────────────────────────────── */
   if (connState === 'connecting') {

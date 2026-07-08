@@ -1,6 +1,8 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 pydantic==2.10.3
+bcrypt==4.2.1
+PyJWT==2.9.0
 pandas==2.2.3
 pmdarima==2.0.4
 statsmodels==0.14.4

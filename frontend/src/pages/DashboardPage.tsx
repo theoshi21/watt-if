@@ -83,6 +83,35 @@ function EmptyState() {
   )
 }
 
+// ── Error state ───────────────────────────────────────────────────────────────
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div style={{ padding: '1.5rem' }}>
+      <div
+        className="card"
+        style={{
+          textAlign: 'center',
+          padding: '2.5rem',
+          borderLeft: '4px solid var(--color-red)',
+        }}
+      >
+        <p
+          style={{
+            color: 'var(--color-text-primary)',
+            fontSize: '1rem',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Could not load forecast
+        </p>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
+          {message}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard page ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { months, loading, error } = useForecast()
@@ -90,10 +119,12 @@ export default function DashboardPage() {
 
   if (loading) return <LoadingSkeleton />
 
-  if (months.length === 0 && !loading && !error) return <EmptyState />
+  if (error) return <ErrorState message={error} />
+
+  if (months.length === 0) return <EmptyState />
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="page-content" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {anomaly && (
         <AnomalyCard month={anomaly.monthLabel} percentAbove={anomaly.percentAbove} />
       )}
@@ -151,6 +182,7 @@ export default function DashboardPage() {
 
       <section>
         <h2
+          className="section-heading-mobile"
           style={{
             fontFamily: 'var(--font-sans)',
             color: 'var(--color-text-primary)',

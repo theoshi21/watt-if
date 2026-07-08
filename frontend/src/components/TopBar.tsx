@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import DarkModeToggle from './DarkModeToggle'
 
 interface TopBarProps {
@@ -90,6 +90,7 @@ const iconButtonStyle: React.CSSProperties = {
 
 export default function TopBar({ onMenuClick }: TopBarProps) {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const pageTitle = PAGE_TITLES[pathname] ?? 'Dashboard'
 
   const headerStyle: React.CSSProperties = {
@@ -105,7 +106,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
   }
 
   return (
-    <header style={headerStyle}>
+    <header style={headerStyle} className="topbar-compact">
       {/* Left: hamburger (mobile only) + page title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <button
@@ -144,6 +145,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
         <button
           aria-label="User account"
           style={iconButtonStyle}
+          onClick={() => navigate('/account')}
         >
           <UserCircleIcon />
         </button>

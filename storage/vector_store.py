@@ -4,9 +4,11 @@ Vector Store for WATT-IF forecast documents.
 Wraps ChromaDB with sentence-transformers embeddings (all-MiniLM-L6-v2) for
 storing and retrieving ForecastDocument objects via cosine similarity search.
 
-Each document is indexed by the ID "{forecast_month}_{horizon_label}" so that
-upserting a document for the same month+horizon pair replaces the existing
-entry — no duplicates.
+Each document is indexed by the ID "{user_id}_{forecast_month}_{horizon_label}"
+(e.g. ``"1_2026-03_3m"``), which guarantees that a subsequent upsert for the
+same user+month+horizon triple replaces the existing entry rather than creating
+a duplicate.  Documents are user-scoped so that each account's forecasts remain
+isolated.
 """
 
 from __future__ import annotations
@@ -116,18 +118,22 @@ class VectorStore:
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    def upsert(self, doc: ForecastDocument) -> None:
+    def upsert(self, doc: ForecastDocument, user_id: int | str | None = None) -> None:
         """Embed and upsert a :class:`~pipeline.models.ForecastDocument`.
 
         The document is stored under the ID
-        ``"{forecast_month}_{horizon_label}"`` (e.g. ``"2026-03_3m"``), which
-        guarantees that a subsequent upsert for the same month+horizon pair
-        replaces the existing entry rather than creating a duplicate.
+        ``"{user_id}_{forecast_month}_{horizon_label}"`` (e.g.
+        ``"1_2026-03_3m"``), which guarantees that a subsequent upsert for
+        the same user+month+horizon triple replaces the existing entry rather
+        than creating a duplicate.
 
         Parameters
         ----------
         doc:
             The forecast document to embed and store.
+        user_id:
+            The owner of this forecast.  When provided the document is scoped
+            to this user and can be retrieved with a user-filtered query.
 
         Raises
         ------
@@ -138,6 +144,12 @@ class VectorStore:
         # Embedding may raise VectorStoreError — let it propagate so callers
         # know the document was NOT stored.
         embedding = self._embed(doc.text)
+
+        # Scope the document ID by user so different accounts never collide.
+        if user_id is not None:
+            scoped_id = f"{user_id}_{doc.id}"
+        else:
+            scoped_id = doc.id
 
         metadata: dict = {
             "forecast_month":    doc.metadata.forecast_month,
@@ -154,16 +166,18 @@ class VectorStore:
             "rainy_days_count":  doc.metadata.rainy_days_count,
             "is_el_nino":        doc.metadata.is_el_nino,
         }
+        if user_id is not None:
+            metadata["user_id"] = str(user_id)
 
         self._collection.upsert(
-            ids=[doc.id],
+            ids=[scoped_id],
             embeddings=[embedding],
             documents=[doc.text],
             metadatas=[metadata],
         )
-        logger.debug("Upserted document id=%r into collection.", doc.id)
+        logger.debug("Upserted document id=%r into collection.", scoped_id)
 
-    def query(self, question: str, top_k: int = 5) -> list[ForecastDocument]:
+    def query(self, question: str, top_k: int = 5, user_id: int | str | None = None) -> list[ForecastDocument]:
         """Return up to *top_k* :class:`~pipeline.models.ForecastDocument`
         objects most similar to *question*, ranked by cosine similarity.
 
@@ -176,6 +190,8 @@ class VectorStore:
         top_k:
             Maximum number of results to return.  Actual count may be less if
             fewer documents exist in the store.
+        user_id:
+            When provided, only documents belonging to this user are returned.
         """
         total = self.collection_size()
         if total == 0:
@@ -187,10 +203,16 @@ class VectorStore:
 
         question_embedding = self._embed(question)
 
+        # Build optional where filter for user-scoped queries.
+        where_filter = None
+        if user_id is not None:
+            where_filter = {"user_id": str(user_id)}
+
         results = self._collection.query(
             query_embeddings=[question_embedding],
             n_results=n_results,
             include=["documents", "metadatas"],
+            where=where_filter,
         )
 
         docs: list[ForecastDocument] = []

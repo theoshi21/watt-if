@@ -57,6 +57,7 @@ const chartCardStyle: React.CSSProperties = {
   boxShadow: 'var(--shadow-card)',
   padding: '1.25rem',
   marginBottom: '1.25rem',
+  overflow: 'hidden',
 }
 
 const titleStyle: React.CSSProperties = {
@@ -117,6 +118,21 @@ function PriceTooltip({ active, payload, label }: any) {
 }
 
 export const ForecastChart: React.FC<Props> = ({ months }) => {
+  // Detect narrow screens for responsive chart margins
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 768)
+  React.useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  const chartMargin = isMobile
+    ? { top: 10, right: 8, bottom: 10, left: -10 }
+    : { top: 16, right: 28, bottom: 16, left: 8 }
+  const yAxisWidth = isMobile ? 52 : 72
+  const xAxisFontSize = isMobile ? 10 : 12
+  const yAxisFontSize = isMobile ? 10 : 12
+
   if (months.length === 0) {
     return (
       <div
@@ -160,14 +176,14 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
         <h3 style={titleStyle}>Electricity Consumption Forecast</h3>
         <p style={subtitleStyle}>Monthly kWh forecast with 95% confidence interval</p>
 
-        <ResponsiveContainer width="100%" height={340}>
-          <BarChart data={data} margin={{ top: 16, right: 28, bottom: 16, left: 8 }}
+        <ResponsiveContainer width="100%" height={340} className="chart-container-responsive">
+          <BarChart data={data} margin={chartMargin}
             barCategoryGap="30%">
             <CartesianGrid strokeDasharray="4 4" stroke={colors.grid} vertical={false} />
 
             <XAxis
               dataKey="label"
-              tick={{ fill: colors.muted, fontSize: 12 }}
+              tick={{ fill: colors.muted, fontSize: xAxisFontSize }}
               axisLine={false}
               tickLine={false}
               dy={10}
@@ -175,10 +191,10 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
 
             <YAxis
               unit=" kWh"
-              tick={{ fill: colors.muted, fontSize: 12 }}
+              tick={{ fill: colors.muted, fontSize: yAxisFontSize }}
               axisLine={false}
               tickLine={false}
-              width={72}
+              width={yAxisWidth}
             />
 
             <Tooltip content={<KwhTooltip />} cursor={{ fill: 'var(--color-border)', opacity: 0.4 }} />
@@ -206,13 +222,13 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
         <h3 style={titleStyle}>Electricity Bill Forecast</h3>
         <p style={subtitleStyle}>Monthly estimated price with 95% confidence interval</p>
 
-        <ResponsiveContainer width="100%" height={340}>
-          <ComposedChart data={data} margin={{ top: 16, right: 28, bottom: 16, left: 8 }}>
+        <ResponsiveContainer width="100%" height={340} className="chart-container-responsive">
+          <ComposedChart data={data} margin={chartMargin}>
             <CartesianGrid strokeDasharray="4 4" stroke={colors.grid} vertical={false} />
 
             <XAxis
               dataKey="label"
-              tick={{ fill: colors.muted, fontSize: 12 }}
+              tick={{ fill: colors.muted, fontSize: xAxisFontSize }}
               axisLine={false}
               tickLine={false}
               dy={10}
@@ -220,10 +236,10 @@ export const ForecastChart: React.FC<Props> = ({ months }) => {
 
             <YAxis
               unit=" ₱"
-              tick={{ fill: colors.muted, fontSize: 12 }}
+              tick={{ fill: colors.muted, fontSize: yAxisFontSize }}
               axisLine={false}
               tickLine={false}
-              width={72}
+              width={yAxisWidth}
             />
 
             <Tooltip content={<PriceTooltip />} />

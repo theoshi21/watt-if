@@ -14,7 +14,10 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
+
+import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +97,26 @@ CREATE TABLE IF NOT EXISTS chat_history (
 );
 """
 
+_DDL_USERS = """
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT NOT NULL UNIQUE CHECK(length(email) <= 254),
+    password_hash TEXT NOT NULL,
+    created_at    TEXT NOT NULL
+);
+"""
+
+_DDL_SAVED_FORECASTS = """
+CREATE TABLE IF NOT EXISTS saved_forecasts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    horizon    INTEGER NOT NULL,
+    months     TEXT NOT NULL,
+    saved_at   TEXT NOT NULL,
+    UNIQUE(user_id)
+);
+"""
+
 _ALL_DDL = [
     _DDL_MONTHLY_BILL_RECORDS,
     _DDL_DAILY_AGGREGATES,
@@ -101,12 +124,96 @@ _ALL_DDL = [
     _DDL_TRAINING_LOG,
     _DDL_DATA_ENTRY_LOG,
     _DDL_CHAT_HISTORY,
+    _DDL_USERS,
+    _DDL_SAVED_FORECASTS,
 ]
 
 
 # ---------------------------------------------------------------------------
 # Public helpers
 # ---------------------------------------------------------------------------
+
+
+def _table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Check whether *table* already contains a column named *column*."""
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    columns = [row[1] for row in cursor.fetchall()]
+    return column in columns
+
+
+def _run_migrations(conn: sqlite3.Connection) -> None:
+    """Run idempotent schema migrations for the account system.
+
+    Steps:
+      1. Add ``user_id`` column to tables that lack it.
+      2. Seed the default account (wattif@gmail.com / wattif).
+      3. Assign orphaned rows (NULL user_id) to the default account.
+
+    Raises
+    ------
+    Exception
+        Re-raised after logging so the application refuses to start.
+    """
+    try:
+        # --- Step 1: ALTER TABLE migrations ----------------------------------
+        tables_needing_user_id = [
+            "monthly_bill_records",
+            "data_entry_log",
+            "chat_history",
+            "training_log",
+        ]
+        for table in tables_needing_user_id:
+            if not _table_has_column(conn, table, "user_id"):
+                logger.info("Adding user_id column to %s", table)
+                conn.execute(
+                    f"ALTER TABLE {table} ADD COLUMN user_id INTEGER REFERENCES users(id)"
+                )
+        conn.commit()
+        logger.info("Schema migration: user_id columns verified/added.")
+
+        # --- Step 2: Default account seeding ---------------------------------
+        cursor = conn.execute(
+            "SELECT id FROM users WHERE email = ?", ("wattif@gmail.com",)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            logger.info("Seeding default account (wattif@gmail.com).")
+            password_hash = bcrypt.hashpw(
+                "wattif".encode("utf-8"), bcrypt.gensalt(rounds=12)
+            ).decode("utf-8")
+            created_at = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+                ("wattif@gmail.com", password_hash, created_at),
+            )
+            conn.commit()
+            # Re-fetch the id after insert
+            cursor = conn.execute(
+                "SELECT id FROM users WHERE email = ?", ("wattif@gmail.com",)
+            )
+            row = cursor.fetchone()
+        default_user_id = row[0]
+        logger.info("Default account id: %s", default_user_id)
+
+        # --- Step 3: Orphaned row assignment ---------------------------------
+        for table in tables_needing_user_id:
+            if _table_has_column(conn, table, "user_id"):
+                result = conn.execute(
+                    f"UPDATE {table} SET user_id = ? WHERE user_id IS NULL",
+                    (default_user_id,),
+                )
+                if result.rowcount:
+                    logger.info(
+                        "Assigned %d orphaned rows in %s to default account.",
+                        result.rowcount,
+                        table,
+                    )
+        conn.commit()
+        logger.info("Migration complete: orphaned rows assigned.")
+
+    except Exception:
+        logger.exception("Account system migration failed — application cannot start.")
+        raise
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -123,6 +230,9 @@ def init_db(conn: sqlite3.Connection) -> None:
         cursor.execute(ddl)
     conn.commit()
     logger.debug("WATT-IF database schema initialised.")
+
+    # Run account-system migrations (idempotent).
+    _run_migrations(conn)
 
 
 def get_connection(db_path: str | Path = DEFAULT_DB_PATH) -> sqlite3.Connection:

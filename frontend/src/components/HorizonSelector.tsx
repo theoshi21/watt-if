@@ -8,7 +8,7 @@ interface Props {
 }
 
 const HORIZONS: Horizon[] = [1, 3, 6, 9, 12]
-const LABELS: Record<Horizon, string> = { 1: '1m', 3: '3m', 6: '6m', 9: '9m', 12: '12m' }
+const LABELS: Record<Horizon, string> = { 1: '1 Mo', 3: '3 Mo', 6: '6 Mo', 9: '9 Mo', 12: '12 Mo' }
 
 export const HorizonSelector: React.FC<Props> = ({ selected, onChange, disabled }) => {
   return (

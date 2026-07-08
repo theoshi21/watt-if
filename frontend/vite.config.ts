@@ -1,6 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import os from 'os'
+
+/**
+ * Detect the first non-internal IPv4 address on this machine.
+ * Used so VITE_API_BASE can point to the LAN IP automatically.
+ */
+function getLocalIp(): string {
+  const interfaces = os.networkInterfaces()
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] ?? []) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address
+      }
+    }
+  }
+  return 'localhost'
+}
+
+const localIp = getLocalIp()
 
 export default defineConfig({
   plugins: [
@@ -50,7 +69,13 @@ export default defineConfig({
       }
     })
   ],
+  // Expose the auto-detected LAN IP as an env variable so the frontend
+  // can reach the backend without hardcoding the IP in .env.local.
+  define: {
+    __LOCAL_IP__: JSON.stringify(localIp),
+  },
   server: {
+    host: '0.0.0.0', // listen on all interfaces for LAN access
     port: 5173,
     proxy: {
       '/api': {

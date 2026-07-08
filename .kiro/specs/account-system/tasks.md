@@ -21,7 +21,7 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - **Property 11: Orphaned data migration** — insert rows with NULL user_id, run migration, verify all assigned to default account
     - **Validates: Requirements 12.4, 12.5, 1.4**
 
-- [ ] 2. Backend auth infrastructure
+- [x] 2. Backend auth infrastructure
   - [x] 2.1 Create `api/rate_limiter.py` with LoginRateLimiter class
     - Implement in-memory dict tracking failed login attempts per email with timestamps
     - `check(email)` raises HTTPException(429) if 10+ failures within 15-minute window
@@ -37,14 +37,14 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - Verify the user ID in the token actually exists in the users table
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-  - [ ] 2.3 Create `api/auth.py` with registration, login, and password-change endpoints
+  - [x] 2.3 Create `api/auth.py` with registration, login, and password-change endpoints
     - `POST /auth/register`: validate email format (one "@", domain with ".", ≤254 chars), password ≥8 chars, check duplicate, hash with bcrypt cost 12, create user, return 201
     - `POST /auth/login`: verify credentials, check rate limiter, issue JWT with sub/email/exp(24h)/iat, return token + email
     - `POST /auth/change-password`: require current_user dependency, verify current password, validate new password ≥8 chars and matches confirm, update hash
     - Run dummy bcrypt check on non-existent emails to prevent timing attacks
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 11.5, 11.6, 11.7, 11.8_
 
-  - [ ] 2.4 Register auth router in `api/main.py`
+  - [x] 2.4 Register auth router in `api/main.py`
     - Import and include the auth router from `api/auth.py`
     - Add `JWT_SECRET` to `.env.example`
     - Add `bcrypt` and `python-jose[cryptography]` (or `PyJWT`) to project dependencies
@@ -60,18 +60,18 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - **Property 12: Password change validation** — test all valid/invalid combinations
     - **Validates: Requirements 2.2, 2.3, 2.4, 2.5, 2.7, 3.1, 3.2, 3.3, 3.4, 3.7, 11.5, 11.6, 11.7, 11.8**
 
-- [ ] 3. Checkpoint - Verify auth infrastructure
+- [x] 3. Checkpoint - Verify auth infrastructure
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Per-user data isolation on existing endpoints
-  - [ ] 4.1 Add `get_current_user` dependency to data-entry endpoints and filter by user_id
+- [x] 4. Per-user data isolation on existing endpoints
+  - [x] 4.1 Add `get_current_user` dependency to data-entry endpoints and filter by user_id
     - Modify `GET /data-entries` to filter by `user_id = current_user["id"]`
     - Modify `POST /data-entries` to set `user_id` on insert
     - Modify `PUT /data-entries/{id}` to verify ownership (403 if mismatch, 404 if not found)
     - Modify `DELETE /data-entries/{id}` to verify ownership (403 if mismatch, 404 if not found)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
 
-  - [ ] 4.2 Add `get_current_user` dependency to upload, forecast, retrain, and model-info endpoints
+  - [x] 4.2 Add `get_current_user` dependency to upload, forecast, retrain, and model-info endpoints
     - Modify `POST /upload` to set `user_id` on all inserted/upserted records
     - Modify `POST /forecast` to load model from `data/models/{user_id}/sarimax_model.joblib`; return 503 if absent
     - Modify `POST /retrain` to train only on user's records and save to user's model path
@@ -79,13 +79,13 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - Create user model directory on first training: `data/models/{user_id}/`
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-  - [ ] 4.3 Add `get_current_user` dependency to chat-history endpoints and filter by user_id
+  - [x] 4.3 Add `get_current_user` dependency to chat-history endpoints and filter by user_id
     - Modify `GET /chat-history` to filter by user_id, limit 100, order by created_at ASC
     - Modify `POST /chat-history` to set user_id on insert
     - Modify `DELETE /chat-history` to delete only user's records, return 204
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-  - [ ] 4.4 Add `get_current_user` dependency to `DELETE /data/all` and scope deletion
+  - [x] 4.4 Add `get_current_user` dependency to `DELETE /data/all` and scope deletion
     - Delete only the current user's records in monthly_bill_records, data_entry_log, training_log, chat_history
     - Delete the user's model artefact and directory (`data/models/{user_id}/`)
     - _Requirements: 7.5_
@@ -96,11 +96,11 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - **Property 9: Cross-user mutation rejection** — user A cannot edit/delete user B's entries → 403
     - **Validates: Requirements 5.1–5.6, 6.1–6.7, 8.1–8.5**
 
-- [ ] 5. Checkpoint - Verify backend isolation
+- [x] 5. Checkpoint - Verify backend isolation
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Frontend auth context and API client updates
-  - [ ] 6.1 Create `frontend/src/context/AuthContext.tsx`
+- [x] 6. Frontend auth context and API client updates
+  - [x] 6.1 Create `frontend/src/context/AuthContext.tsx`
     - Implement AuthContextValue: user, token, login, register, logout, isLoading
     - On mount: check localStorage "wattif_token", decode JWT payload to get email/id, verify exp not passed
     - If token expired/invalid: clear localStorage, set user to null
@@ -109,33 +109,33 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - logout(): clear localStorage "wattif_token", set user to null
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 9.7, 10.5_
 
-  - [ ] 6.2 Update `frontend/src/api/client.ts` to attach Bearer token and handle 401
+  - [x] 6.2 Update `frontend/src/api/client.ts` to attach Bearer token and handle 401
     - Modify `request()` to read token from localStorage and set `Authorization: Bearer {token}` header
     - On 401 response: clear localStorage token, redirect to `/login`
     - _Requirements: 4.5, 4.6_
 
-  - [ ] 6.3 Create `frontend/src/components/AuthGuard.tsx`
+  - [x] 6.3 Create `frontend/src/components/AuthGuard.tsx`
     - Wrap protected routes; if no valid token, redirect to `/login`
     - Show loading spinner while `isLoading` is true in AuthContext
     - If authenticated user visits `/login` or `/register`, redirect to `/`
     - _Requirements: 9.1, 9.9_
 
-- [ ] 7. Frontend auth pages
-  - [ ] 7.1 Create `frontend/src/pages/LoginPage.tsx`
+- [x] 7. Frontend auth pages
+  - [x] 7.1 Create `frontend/src/pages/LoginPage.tsx`
     - Labelled email input, labelled password input (masked), submit button
     - Link to Registration page
     - Generic "Invalid credentials" error on failure (no field-specific hints)
     - On success: redirect to Dashboard
     - _Requirements: 9.2, 9.3, 9.4, 9.5_
 
-  - [ ] 7.2 Create `frontend/src/pages/RegisterPage.tsx`
+  - [x] 7.2 Create `frontend/src/pages/RegisterPage.tsx`
     - Labelled email, password, confirm-password inputs with submit button
     - Submit disabled until password ≥8 chars AND password === confirm-password
     - On success: auto-login and redirect to Dashboard
     - On failure: display error message indicating reason (duplicate email, validation)
     - _Requirements: 9.6, 9.7, 9.8_
 
-  - [ ] 7.3 Create `frontend/src/pages/AccountSettingsPage.tsx`
+  - [x] 7.3 Create `frontend/src/pages/AccountSettingsPage.tsx`
     - Display user email as read-only text
     - Password change form: current password, new password, confirm new password
     - Validate new password ≥8 chars and matches confirm; show inline errors
@@ -149,8 +149,8 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - **Property 14: Registration form submit-button state** — random password/confirm pairs, verify disabled/enabled logic
     - **Validates: Requirements 10.1, 9.6**
 
-- [ ] 8. Frontend routing, Sidebar, and TopBar integration
-  - [ ] 8.1 Update `frontend/src/App.tsx` routing with AuthGuard, login, register, and account routes
+- [x] 8. Frontend routing, Sidebar, and TopBar integration
+  - [x] 8.1 Update `frontend/src/App.tsx` routing with AuthGuard, login, register, and account routes
     - Wrap existing routes with AuthGuard
     - Add `/login` route → LoginPage (outside AuthGuard)
     - Add `/register` route → RegisterPage (outside AuthGuard)
@@ -158,7 +158,7 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - Wrap entire app with AuthContext provider
     - _Requirements: 9.1, 9.9, 11.2_
 
-  - [ ] 8.2 Update `frontend/src/components/Sidebar.tsx` with user email display and logout button
+  - [x] 8.2 Update `frontend/src/components/Sidebar.tsx` with user email display and logout button
     - Display authenticated user's email in Sidebar bottom section
     - Truncate email with ellipsis if >24 characters
     - Add "Logout" button below email display
@@ -166,35 +166,35 @@ This plan implements JWT-based authentication, per-user data isolation, and fron
     - Handle network errors during logout gracefully (still clear local token)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-  - [ ] 8.3 Update `frontend/src/components/TopBar.tsx` with Account icon linking to settings
+  - [x] 8.3 Update `frontend/src/components/TopBar.tsx` with Account icon linking to settings
     - Display Account icon in upper-right area
     - On click: navigate to `/account` (Account Settings Page)
     - _Requirements: 11.1, 11.2_
 
-- [ ] 9. Default account auto-login logic
-  - [ ] 9.1 Implement default account auto-login in AuthContext
+- [x] 9. Default account auto-login logic
+  - [~] 9.1 Implement default account auto-login in AuthContext
     - On startup: if no stored token AND only default account exists (check via an endpoint or token presence heuristic), auto-login with default credentials
     - If additional user accounts exist: do NOT auto-login, show Login page
     - Add backend endpoint `GET /auth/has-users` returning `{"has_other_users": bool}` to check if accounts beyond default exist
     - _Requirements: 1.2, 1.3, 1.5, 1.6_
 
-- [ ] 10. Checkpoint - Verify full integration
+- [x] 10. Checkpoint - Verify full integration
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Test documentation updates
-  - [ ] 11.1 Update `Documentation/Test_Plan.md` with account system test items
+- [x] 11. Test documentation updates
+  - [x] 11.1 Update `Documentation/Test_Plan.md` with account system test items
     - Add account system components to Section 2 (Test Items): registration form, login form, logout action, session persistence mechanism, data isolation behavior
     - Add "Account System" subsection to Section 3 (Features to Be Tested): registration, login, logout, session persistence, data isolation, error handling
     - Add row to Section 6 (Item Pass/Fail Criteria) for account/authentication features defining pass and fail conditions
     - _Requirements: 13.1, 13.4_
 
-  - [ ] 11.2 Create `Documentation/TC_ACT_AccountSystem.md` test case document
+  - [x] 11.2 Create `Documentation/TC_ACT_AccountSystem.md` test case document
     - Use ACT prefix for all test case IDs (ACT-01, ACT-02, etc.)
     - Include at least 1 test case per category: registration, login, logout, session persistence, data isolation, error handling (minimum 6 total)
     - Each test case includes: ID, Summary, Pre-condition, Test Steps (numbered), Expected Result, Actual Result (blank), Status (⬜ Not Run), Notes
     - _Requirements: 13.2, 13.3_
 
-- [ ] 12. Final checkpoint - Ensure all tests pass
+- [x] 12. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

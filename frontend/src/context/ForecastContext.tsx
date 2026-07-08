@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { getForecast, getTrainingStatus } from '../api/client'
+import { getForecast, getTrainingStatus, getSavedForecast, saveForecast } from '../api/client'
 import type { ForecastMonth, Horizon } from '../api/types'
 
 interface ForecastContextValue {
@@ -26,6 +26,10 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const res = await getForecast(h)
       setMonths(res.months)
+      // Persist forecast to the user's account in the background
+      saveForecast(h, res.months).catch(() => {
+        // Non-critical — silently ignore save failures
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load forecast.'
       if (msg.includes('503') || msg.includes('artefact')) {
@@ -39,15 +43,26 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [])
 
-  // On mount: auto-load 3-month forecast only if no forecast is cached yet.
-  // We check /status first — if training is running we skip to avoid
-  // generating a stale forecast. We do NOT re-run on every mount so that
-  // a 12-month forecast the user generated on the Forecast page stays as
-  // the active RAG context.
+  // On mount: try to restore the user's saved forecast first, then fall back
+  // to generating a fresh 3-month forecast.
   useEffect(() => {
     const checkAndLoad = async () => {
       // Skip if we already have months in state (navigating back to Dashboard)
       if (months.length > 0) return
+
+      // Try restoring the saved forecast from the backend
+      try {
+        const saved = await getSavedForecast()
+        if (saved.months && saved.months.length > 0 && saved.horizon) {
+          setMonths(saved.months)
+          setHorizon(saved.horizon as Horizon)
+          return
+        }
+      } catch {
+        // Saved forecast unavailable — fall through to fresh generation
+      }
+
+      // No saved forecast: generate a fresh one if model is not training
       try {
         const s = await getTrainingStatus()
         if (s.status !== 'running') {

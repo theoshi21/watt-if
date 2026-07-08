@@ -270,7 +270,7 @@ class RAGService:
         ]
 
     def _retrieve(
-        self, question: str
+        self, question: str, user_id: int | str | None = None,
     ) -> tuple[list[ForecastDocument], list[str]] | RAGResponse:
         """Retrieve forecast docs and EDA docs for *question*.
 
@@ -292,7 +292,7 @@ class RAGService:
                 error=False,
             )
         try:
-            docs = self._vector_store.query(question, top_k=RETRIEVAL_TOP_K)
+            docs = self._vector_store.query(question, top_k=RETRIEVAL_TOP_K, user_id=user_id)
         except (VectorStoreError, Exception) as exc:
             logger.error("Vector store retrieval failed: %s", exc, exc_info=True)
             return RAGResponse(
@@ -329,13 +329,13 @@ class RAGService:
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    def answer(self, question: str) -> RAGResponse:
+    def answer(self, question: str, user_id: int | str | None = None) -> RAGResponse:
         """Answer *question* using RAG (non-streaming).
 
         Kept for backward-compatibility and testing.  Prefer
         :meth:`stream_answer` for production use.
         """
-        retrieved = self._retrieve(question)
+        retrieved = self._retrieve(question, user_id=user_id)
         if isinstance(retrieved, RAGResponse):
             return retrieved
         docs, eda_docs = retrieved
@@ -411,7 +411,7 @@ class RAGService:
         return RAGResponse(answer=answer_text, sources=sources, error=False)
 
     def stream_answer(
-        self, question: str
+        self, question: str, user_id: int | str | None = None,
     ) -> Generator[str, None, None]:
         """Yield Server-Sent Events for *question* using true token-by-token streaming.
 
@@ -427,7 +427,7 @@ class RAGService:
         """
         import json
 
-        retrieved = self._retrieve(question)
+        retrieved = self._retrieve(question, user_id=user_id)
         if isinstance(retrieved, RAGResponse):
             # Out-of-scope or retrieval error — stream the canned message
             # token-by-token so it appears with the same typewriter effect.

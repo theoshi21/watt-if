@@ -369,7 +369,7 @@ export function DataEntryPage() {
   const fmt = (v: number | null | undefined, d = 1) => v != null ? v.toFixed(d) : '—'
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
+    <div className="page-content" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 
       {/* ── New Reading ──────────────────────────────────────────────────── */}
       <section className="card" aria-labelledby="new-reading-hd">

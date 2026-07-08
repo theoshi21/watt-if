@@ -230,28 +230,34 @@ export const ChatPanel: React.FC = () => {
           </div>
         )}
 
-        {messages.map((m) => (
-          <div key={m.id} role="article" aria-label={m.role} style={bubbleStyle(m.role)}>
-            {m.role === 'assistant' ? (
-              streamingMsgId.current === m.id ? (
-                <span style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
+        {messages.map((m) => {
+          // Hide the empty assistant placeholder while waiting for the first token
+          if (m.role === 'assistant' && m.text === '' && streamingMsgId.current === m.id) {
+            return null
+          }
+          return (
+            <div key={m.id} role="article" aria-label={m.role} style={bubbleStyle(m.role)}>
+              {m.role === 'assistant' ? (
+                streamingMsgId.current === m.id ? (
+                  <span style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
+                ) : (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p style={{ margin: '0 0 0.4rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</p>,
+                      ul: ({ children }) => <ul style={{ margin: '0.2rem 0', paddingLeft: '1.2rem' }}>{children}</ul>,
+                      li: ({ children }) => <li style={{ marginBottom: '0.2rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</li>,
+                      strong: ({ children }) => <strong style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                )
               ) : (
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => <p style={{ margin: '0 0 0.4rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</p>,
-                    ul: ({ children }) => <ul style={{ margin: '0.2rem 0', paddingLeft: '1.2rem' }}>{children}</ul>,
-                    li: ({ children }) => <li style={{ marginBottom: '0.2rem', fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ color: 'var(--color-text-primary)' }}>{children}</strong>,
-                  }}
-                >
-                  {m.text}
-                </ReactMarkdown>
-              )
-            ) : (
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
-            )}
-          </div>
-        ))}
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.9rem' }}>{m.text}</span>
+              )}
+            </div>
+          )
+        })}
 
         {waiting && (
           <div style={bubbleStyle('assistant')}>

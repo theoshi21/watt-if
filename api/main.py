@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import tempfile
 import traceback
@@ -25,10 +26,12 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
+from api.auth import router as auth_router
+from api.dependencies import get_current_user
 from api.schemas import (
     AskRequest,
     AskResponse,
@@ -44,9 +47,10 @@ from api.schemas import (
     MeralcoRateResponse,
     RateBracketResponse,
     ModelInfoResponse,
+    SavedForecastResponse,
+    SaveForecastRequest,
     UploadResponse,
 )
-from model.retraining import RetrainingService
 from model.sarimax_model import SARIMAXModel
 from pipeline.data_pipeline import DataPipeline
 from pipeline.models import ForecastDocument, ForecastMetadata
@@ -63,7 +67,26 @@ logger = logging.getLogger(__name__)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 OLLAMA_HEALTH_URL = "http://localhost:11434"
 PWA_ORIGIN = "http://localhost:5173"
-PWA_ORIGIN_NETWORK = f"http://192.168.254.108:4173"  # production preview on LAN
+
+# Dynamically detect the machine's LAN IP for CORS, so you don't have to
+# update this every time you connect to a different network.
+def _get_local_ip() -> str:
+    """Return the first non-loopback IPv4 address, or localhost as fallback."""
+    import socket
+    try:
+        # Connect to an external address (doesn't actually send data) to
+        # determine which local interface would be used.
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "localhost"
+
+_LOCAL_IP = _get_local_ip()
+PWA_ORIGIN_NETWORK = f"http://{_LOCAL_IP}:5173"
+PWA_ORIGIN_NETWORK_PREVIEW = f"http://{_LOCAL_IP}:4173"
 
 _HORIZON_LABELS: dict[int, str] = {1: "1m", 3: "3m", 6: "6m", 9: "9m", 12: "12m"}
 
@@ -72,26 +95,116 @@ _HORIZON_LABELS: dict[int, str] = {1: "1m", 3: "3m", 6: "6m", 9: "9m", 12: "12m"
 # ---------------------------------------------------------------------------
 
 _training_executor = ThreadPoolExecutor(max_workers=1)
-_training_state: dict = {"status": "idle", "error": None}  # idle | running | done | failed
+_training_states: dict[int, dict] = {}  # keyed by user_id: {status, error}
 
 
-def _run_retraining_background(previous_latest: str | None) -> None:
-    """Run the full retraining pipeline in a background thread."""
-    global _training_state
-    _training_state = {"status": "running", "error": None}
+def _get_training_state(user_id: int) -> dict:
+    """Get the training state for a specific user."""
+    return _training_states.get(user_id, {"status": "idle", "error": None})
+
+
+def _run_retraining_background(previous_latest: str | None, user_id: int) -> None:
+    """Run the full retraining pipeline in a background thread for a specific user."""
+    _training_states[user_id] = {"status": "running", "error": None}
     try:
         conn = get_connection(DEFAULT_DB_PATH)
         init_db(conn)
-        svc = RetrainingService(db_conn=conn)
-        result = svc.check_and_retrain(previous_latest_month=previous_latest)
-        conn.close()
-        if result.success:
-            _training_state = {"status": "done", "error": None}
-        else:
-            _training_state = {"status": "failed", "error": result.error_message}
+
+        # Build user-specific model path
+        user_model_path = Path("data/models") / str(user_id) / "sarimax_model.joblib"
+        model = SARIMAXModel(artefact_path=user_model_path)
+
+        # Scope training to user's records only
+        from pipeline.feature_engineering import FeatureEngineeringService
+
+        try:
+            # Get training window from user's records only
+            row = conn.execute(
+                "SELECT MIN(year_month) as start, MAX(year_month) as end "
+                "FROM monthly_bill_records WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            if not row or not row["start"]:
+                _training_states[user_id] = {"status": "failed", "error": "No records found for user."}
+                conn.close()
+                return
+
+            start, end = row["start"], row["end"]
+            # Get user's monthly records
+            user_records = conn.execute(
+                "SELECT year_month, kwh, price, meralco_rate, avg_temperature, "
+                "avg_humidity, total_rainfall_mm, holiday_count, weekend_count, "
+                "hot_days_count, rainy_days_count, is_el_nino "
+                "FROM monthly_bill_records WHERE user_id = ? ORDER BY year_month",
+                (user_id,),
+            ).fetchall()
+
+            from pipeline.models import MonthlyRecord
+            monthly_records = [
+                MonthlyRecord(
+                    year_month=r["year_month"],
+                    kwh=r["kwh"],
+                    price=r["price"],
+                    meralco_rate=r["meralco_rate"],
+                    avg_temperature=r["avg_temperature"],
+                    avg_humidity=r["avg_humidity"],
+                    total_rainfall_mm=r["total_rainfall_mm"],
+                    holiday_count=r["holiday_count"],
+                    weekend_count=r["weekend_count"],
+                    hot_days_count=r["hot_days_count"],
+                    rainy_days_count=r["rainy_days_count"],
+                    is_el_nino=r["is_el_nino"],
+                )
+                for r in user_records
+            ]
+
+            # Enrich and train
+            feature_service = FeatureEngineeringService()
+            enriched = feature_service.enrich(monthly_records)
+
+            # Backup existing artefact if present
+            backup_path = None
+            try:
+                backup_path = model.backup()
+            except FileNotFoundError:
+                pass
+
+            training_result = model.train(enriched)
+
+            # Delete backup on success
+            if backup_path:
+                try:
+                    model.delete_backup(backup_path)
+                except Exception:
+                    pass
+
+            # Write training log with user_id
+            trained_at = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "INSERT INTO training_log "
+                "(trained_at, previous_mape, new_mape, training_window_start, "
+                "training_window_end, user_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    trained_at,
+                    None,
+                    training_result.mape_validation,
+                    training_result.training_window["start"],
+                    training_result.training_window["end"],
+                    user_id,
+                ),
+            )
+            conn.commit()
+
+            _training_states[user_id] = {"status": "done", "error": None}
+        except Exception as exc:
+            logger.error("Background retraining failed for user %d: %s", user_id, exc, exc_info=True)
+            _training_states[user_id] = {"status": "failed", "error": str(exc)}
+        finally:
+            conn.close()
     except Exception as exc:
-        logger.error("Background retraining failed: %s", exc, exc_info=True)
-        _training_state = {"status": "failed", "error": str(exc)}
+        logger.error("Background retraining failed for user %d: %s", user_id, exc, exc_info=True)
+        _training_states[user_id] = {"status": "failed", "error": str(exc)}
 
 # ---------------------------------------------------------------------------
 # Application
@@ -132,10 +245,13 @@ async def warmup_ollama() -> None:
 # ── CORS (Req 7.6) ────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[PWA_ORIGIN, PWA_ORIGIN_NETWORK],
+    allow_origins=[PWA_ORIGIN, PWA_ORIGIN_NETWORK, PWA_ORIGIN_NETWORK_PREVIEW],
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ── Auth router (Req 2.1, 3.1) ───────────────────────────────────────────────
+app.include_router(auth_router)
 
 
 # ── Global exception handler (Req 7.5) ───────────────────────────────────────
@@ -287,10 +403,11 @@ def _get_db_conn() -> sqlite3.Connection:
 # ---------------------------------------------------------------------------
 
 @app.post("/upload", response_model=UploadResponse)
-async def upload_csv(file: UploadFile = File(...)) -> UploadResponse:
+async def upload_csv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)) -> UploadResponse:
     """Accept a monthly electricity bill CSV, validate, clean, and persist it.
     Retraining is kicked off in the background — poll GET /status to track progress.
     """
+    user_id = current_user["id"]
 
     filename = file.filename or ""
     if not _is_safe_filename(filename):
@@ -323,6 +440,14 @@ async def upload_csv(file: UploadFile = File(...)) -> UploadResponse:
         finally:
             os.unlink(tmp_path)
 
+        # Set user_id on all just-inserted rows that have no user_id yet
+        if result.validation_status == "ok" and result.row_count > 0:
+            conn.execute(
+                "UPDATE monthly_bill_records SET user_id = ? WHERE user_id IS NULL",
+                (user_id,),
+            )
+            conn.commit()
+
         # Mirror ingested rows into data_entry_log so Entry History shows them.
         # Delete existing 'CSV Upload' rows for those months first, then
         # re-insert, so re-uploading the same CSV doesn't create duplicates.
@@ -331,28 +456,29 @@ async def upload_csv(file: UploadFile = File(...)) -> UploadResponse:
             created_at = datetime.now(timezone.utc).isoformat()
             ingested_rows = conn.execute(
                 "SELECT year_month, kwh, price FROM monthly_bill_records "
-                "ORDER BY year_month"
+                "WHERE user_id = ? ORDER BY year_month",
+                (user_id,),
             ).fetchall()
             year_months = [row["year_month"] for row in ingested_rows]
             # Remove stale CSV Upload entries for these months
             placeholders = ",".join("?" * len(year_months))
             conn.execute(
                 f"DELETE FROM data_entry_log WHERE source = 'CSV Upload' "
-                f"AND year_month IN ({placeholders})",
-                year_months,
+                f"AND year_month IN ({placeholders}) AND user_id = ?",
+                year_months + [user_id],
             )
             conn.executemany(
                 "INSERT INTO data_entry_log "
-                "(year_month, kwh, bill_amount, label, source, created_at) "
-                "VALUES (?, ?, ?, NULL, 'CSV Upload', ?)",
+                "(year_month, kwh, bill_amount, label, source, created_at, user_id) "
+                "VALUES (?, ?, ?, NULL, 'CSV Upload', ?, ?)",
                 [
-                    (row["year_month"], row["kwh"], row["price"], created_at)
+                    (row["year_month"], row["kwh"], row["price"], created_at, user_id)
                     for row in ingested_rows
                 ],
             )
             conn.commit()
             logger.info(
-                "Mirrored %d CSV rows into data_entry_log.", len(ingested_rows)
+                "Mirrored %d CSV rows into data_entry_log for user %d.", len(ingested_rows), user_id,
             )
     finally:
         conn.close()
@@ -371,9 +497,9 @@ async def upload_csv(file: UploadFile = File(...)) -> UploadResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/status")
-async def training_status() -> JSONResponse:
-    """Return the current background training state: idle | running | done | failed."""
-    return JSONResponse(content=_training_state)
+async def training_status(current_user: dict = Depends(get_current_user)) -> JSONResponse:
+    """Return the current background training state for the authenticated user: idle | running | done | failed."""
+    return JSONResponse(content=_get_training_state(current_user["id"]))
 
 
 # ---------------------------------------------------------------------------
@@ -381,15 +507,16 @@ async def training_status() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.post("/retrain")
-async def retrain() -> JSONResponse:
-    """Trigger a full model retrain unconditionally on all data in monthly_bill_records.
+async def retrain(current_user: dict = Depends(get_current_user)) -> JSONResponse:
+    """Trigger a full model retrain unconditionally on the user's data in monthly_bill_records.
 
     Unlike the automatic trigger (which only fires when a new calendar month is
     detected), this endpoint retrains regardless — useful after data corrections
     or when the artefact has been deleted.
     """
-    global _training_state
-    if _training_state["status"] == "running":
+    user_id = current_user["id"]
+    user_state = _get_training_state(user_id)
+    if user_state["status"] == "running":
         return JSONResponse(
             status_code=409,
             content={"detail": "Training already in progress."},
@@ -397,8 +524,8 @@ async def retrain() -> JSONResponse:
 
     # Pass None as previous_latest so the new-month guard in check_and_retrain
     # is bypassed and the pipeline always runs.
-    _training_state = {"status": "running", "error": None}
-    _training_executor.submit(_run_retraining_background, None)
+    _training_states[user_id] = {"status": "running", "error": None}
+    _training_executor.submit(_run_retraining_background, None, user_id)
     return JSONResponse(content={"status": "running"})
 
 
@@ -407,40 +534,72 @@ async def retrain() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 @app.post("/forecast", response_model=ForecastResponse)
-async def forecast(request: ForecastRequest) -> ForecastResponse:
+async def forecast(request: ForecastRequest, current_user: dict = Depends(get_current_user)) -> ForecastResponse:
     """Generate a SARIMAX forecast and persist each month to the vector store."""
+    user_id = current_user["id"]
 
-    # Load model artefact.
-    model = SARIMAXModel()
-    try:
-        model.load()
-    except FileNotFoundError as exc:
+    # Load model artefact from user's path.
+    user_model_path = Path("data/models") / str(user_id) / "sarimax_model.joblib"
+    if not user_model_path.exists():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
+            detail="Model not trained. Please train your model first.",
         )
 
-    # Load historical records so the fallback exog estimator has real data.
-    # These are only used when request.exog is None (the common case from the UI).
+    model = SARIMAXModel(artefact_path=user_model_path)
+    try:
+        model.load()
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model not trained. Please train your model first.",
+        )
+
+    # Load historical records scoped to user so the fallback exog estimator has real data.
     historical_enriched = None
     if request.exog is None:
         try:
             from pipeline.data_pipeline import DataPipeline
             from pipeline.feature_engineering import FeatureEngineeringService
+            from pipeline.models import MonthlyRecord
             conn = _get_db_conn()
             try:
-                dp = DataPipeline(db_conn=conn)
-                start, end = dp.get_training_window_extent()
-                monthly_records = dp.get_monthly_records(start, end)
-                historical_enriched = FeatureEngineeringService().enrich(monthly_records)
-                logger.info(
-                    "Loaded %d historical records for fallback exog estimation.",
-                    len(historical_enriched),
-                )
-            except ValueError:
-                logger.warning(
-                    "No historical records found; fallback exog will use climate defaults."
-                )
+                # Get user's records only
+                user_records = conn.execute(
+                    "SELECT year_month, kwh, price, meralco_rate, avg_temperature, "
+                    "avg_humidity, total_rainfall_mm, holiday_count, weekend_count, "
+                    "hot_days_count, rainy_days_count, is_el_nino "
+                    "FROM monthly_bill_records WHERE user_id = ? ORDER BY year_month",
+                    (user_id,),
+                ).fetchall()
+                if user_records:
+                    monthly_records = [
+                        MonthlyRecord(
+                            year_month=r["year_month"],
+                            kwh=r["kwh"],
+                            price=r["price"],
+                            meralco_rate=r["meralco_rate"],
+                            avg_temperature=r["avg_temperature"],
+                            avg_humidity=r["avg_humidity"],
+                            total_rainfall_mm=r["total_rainfall_mm"],
+                            holiday_count=r["holiday_count"],
+                            weekend_count=r["weekend_count"],
+                            hot_days_count=r["hot_days_count"],
+                            rainy_days_count=r["rainy_days_count"],
+                            is_el_nino=r["is_el_nino"],
+                        )
+                        for r in user_records
+                    ]
+                    historical_enriched = FeatureEngineeringService().enrich(monthly_records)
+                    logger.info(
+                        "Loaded %d historical records for user %d for fallback exog estimation.",
+                        len(historical_enriched), user_id,
+                    )
+                else:
+                    logger.warning(
+                        "No historical records found for user %d; fallback exog will use climate defaults.",
+                        user_id,
+                    )
             finally:
                 conn.close()
         except Exception as exc:
@@ -488,12 +647,12 @@ async def forecast(request: ForecastRequest) -> ForecastResponse:
             ),
         )
         try:
-            vector_store.upsert(doc)
+            vector_store.upsert(doc, user_id=user_id)
         except Exception as exc:
             # Retry once (Req 4.7).
             logger.warning("First upsert attempt failed for %s: %s — retrying.", doc_id, exc)
             try:
-                vector_store.upsert(doc)
+                vector_store.upsert(doc, user_id=user_id)
             except Exception as exc2:
                 logger.error("Retry upsert failed for %s: %s — continuing.", doc_id, exc2)
 
@@ -501,11 +660,68 @@ async def forecast(request: ForecastRequest) -> ForecastResponse:
 
 
 # ---------------------------------------------------------------------------
+# GET /saved-forecast — load persisted forecast for current user
+# ---------------------------------------------------------------------------
+
+@app.get("/saved-forecast", response_model=SavedForecastResponse)
+async def get_saved_forecast(current_user: dict = Depends(get_current_user)) -> SavedForecastResponse:
+    """Return the user's most recently saved forecast, or empty if none exists."""
+    import json
+
+    user_id = current_user["id"]
+    conn = _get_db_conn()
+    try:
+        row = conn.execute(
+            "SELECT horizon, months, saved_at FROM saved_forecasts WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return SavedForecastResponse(horizon=None, months=None, saved_at=None)
+
+    months_data = json.loads(row["months"])
+    return SavedForecastResponse(horizon=row["horizon"], months=months_data, saved_at=row["saved_at"])
+
+
+# ---------------------------------------------------------------------------
+# POST /saved-forecast — persist forecast for current user
+# ---------------------------------------------------------------------------
+
+@app.post("/saved-forecast", response_model=SavedForecastResponse)
+async def save_forecast(request: SaveForecastRequest, current_user: dict = Depends(get_current_user)) -> SavedForecastResponse:
+    """Save the given forecast data for the authenticated user (upsert)."""
+    import json
+
+    user_id = current_user["id"]
+    saved_at = datetime.now(timezone.utc).isoformat()
+    months_json = json.dumps(request.months)
+
+    conn = _get_db_conn()
+    try:
+        conn.execute(
+            """INSERT INTO saved_forecasts (user_id, horizon, months, saved_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 horizon = excluded.horizon,
+                 months = excluded.months,
+                 saved_at = excluded.saved_at""",
+            (user_id, request.horizon, months_json, saved_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return SavedForecastResponse(horizon=request.horizon, months=None, saved_at=saved_at)
+
+
+# ---------------------------------------------------------------------------
 # POST /ask  (Req 7.2, 6.9, 6.10)
 # ---------------------------------------------------------------------------
 
 @app.post("/ask")
-async def ask(request: AskRequest) -> StreamingResponse:
+async def ask(request: AskRequest, current_user: dict = Depends(get_current_user)) -> StreamingResponse:
     """Stream a natural-language answer about the electricity forecast via RAG.
 
     Response is text/event-stream (SSE).  Each event is a JSON object on a
@@ -517,11 +733,12 @@ async def ask(request: AskRequest) -> StreamingResponse:
     """
     import asyncio
 
+    user_id = current_user["id"]
     rag = RAGService()
     # stream_answer is a sync generator (httpx is sync).
     # Run it in a thread pool so it doesn't block the event loop, and
     # bridge each yielded SSE chunk into an async generator for StreamingResponse.
-    sync_gen = rag.stream_answer(request.question)
+    sync_gen = rag.stream_answer(request.question, user_id=user_id)
     loop = asyncio.get_event_loop()
 
     async def _async_generate():
@@ -557,10 +774,13 @@ def _mape_rating(mape_pct: float) -> str:
 
 
 @app.get("/model-info", response_model=ModelInfoResponse)
-async def model_info() -> ModelInfoResponse:
+async def model_info(current_user: dict = Depends(get_current_user)) -> ModelInfoResponse:
     """Return evaluation metrics and metadata for the currently trained model."""
+    user_id = current_user["id"]
+    user_model_path = Path("data/models") / str(user_id) / "sarimax_model.joblib"
+
     try:
-        model = SARIMAXModel()
+        model = SARIMAXModel(artefact_path=user_model_path)
         model.load()
     except FileNotFoundError:
         return ModelInfoResponse(
@@ -627,13 +847,14 @@ def _enrich_entry_row(entry_row: sqlite3.Row, mbr: sqlite3.Row | None) -> DataEn
 
 
 @app.get("/data-entries", response_model=list[DataEntryRow])
-async def get_data_entries() -> list[DataEntryRow]:
+async def get_data_entries(current_user: dict = Depends(get_current_user)) -> list[DataEntryRow]:
     """Return all rows from data_entry_log joined with monthly_bill_records exog values."""
     conn = _get_db_conn()
     try:
         entries = conn.execute(
             "SELECT id, year_month, kwh, bill_amount, label, source, created_at "
-            "FROM data_entry_log ORDER BY created_at DESC"
+            "FROM data_entry_log WHERE user_id = ? ORDER BY created_at DESC",
+            (current_user["id"],),
         ).fetchall()
         result = []
         for entry in entries:
@@ -794,6 +1015,7 @@ def _bridge_entry_to_bill_records(
     bill_amount: float | None,
     rate_override: float | None,
     created_at: str,
+    user_id: int | None = None,
 ) -> None:
     """Upsert a manual data entry into monthly_bill_records for model training.
 
@@ -813,8 +1035,8 @@ def _bridge_entry_to_bill_records(
         INSERT OR REPLACE INTO monthly_bill_records
             (year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
              total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
-             rainy_days_count, is_el_nino, session_id, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             rainy_days_count, is_el_nino, session_id, created_at, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             year_month,
@@ -831,6 +1053,7 @@ def _bridge_entry_to_bill_records(
             int(exog["is_el_nino"]),
             "manual_entry",
             created_at,
+            user_id,
         ),
     )
     conn.commit()
@@ -846,7 +1069,7 @@ def _bridge_entry_to_bill_records(
 
 
 @app.post("/data-entries", response_model=DataEntryRow, status_code=201)
-async def create_data_entry(body: DataEntryCreate) -> DataEntryRow:
+async def create_data_entry(body: DataEntryCreate, current_user: dict = Depends(get_current_user)) -> DataEntryRow:
     """Persist a new data entry, bridge it into monthly_bill_records for training,
     and trigger background retraining if a new calendar month was added.
     """
@@ -863,9 +1086,9 @@ async def create_data_entry(body: DataEntryCreate) -> DataEntryRow:
 
         # ── 2. Write to data_entry_log ────────────────────────────────────────
         cursor = conn.execute(
-            "INSERT INTO data_entry_log (year_month, kwh, bill_amount, label, source, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (body.year_month, body.kwh, body.bill_amount, body.label, body.source, created_at),
+            "INSERT INTO data_entry_log (year_month, kwh, bill_amount, label, source, created_at, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (body.year_month, body.kwh, body.bill_amount, body.label, body.source, created_at, current_user["id"]),
         )
         conn.commit()
         row_id = cursor.lastrowid
@@ -884,6 +1107,7 @@ async def create_data_entry(body: DataEntryCreate) -> DataEntryRow:
                 bill_amount=body.bill_amount,
                 rate_override=body.rate_override,
                 created_at=created_at,
+                user_id=current_user["id"],
             )
 
             # Backfill bill_amount in data_entry_log with the computed price
@@ -927,7 +1151,7 @@ async def create_data_entry(body: DataEntryCreate) -> DataEntryRow:
 # ---------------------------------------------------------------------------
 
 @app.put("/data-entries/{entry_id}", response_model=DataEntryRow)
-async def update_data_entry(entry_id: int, body: DataEntryUpdate) -> DataEntryRow:
+async def update_data_entry(entry_id: int, body: DataEntryUpdate, current_user: dict = Depends(get_current_user)) -> DataEntryRow:
     """Update kWh and/or bill_amount and/or label for an existing entry.
 
     Re-bridges the monthly_bill_records row with the new values and triggers
@@ -936,12 +1160,14 @@ async def update_data_entry(entry_id: int, body: DataEntryUpdate) -> DataEntryRo
     conn = _get_db_conn()
     try:
         existing = conn.execute(
-            "SELECT id, year_month, kwh, bill_amount, label, source, created_at "
+            "SELECT id, year_month, kwh, bill_amount, label, source, created_at, user_id "
             "FROM data_entry_log WHERE id = ?",
             (entry_id,),
         ).fetchone()
         if existing is None:
             raise HTTPException(status_code=404, detail=f"Entry {entry_id} not found.")
+        if existing["user_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
 
         # body fields: None means "not provided, keep existing"; use model_fields_set
         # to distinguish "explicitly sent null" from "not sent at all".
@@ -968,6 +1194,7 @@ async def update_data_entry(entry_id: int, body: DataEntryUpdate) -> DataEntryRo
                 bill_amount=new_bill,
                 rate_override=None,
                 created_at=existing["created_at"],
+                user_id=current_user["id"],
             )
 
         row = conn.execute(
@@ -1000,7 +1227,7 @@ async def update_data_entry(entry_id: int, body: DataEntryUpdate) -> DataEntryRo
 # ---------------------------------------------------------------------------
 
 @app.delete("/data-entries/{entry_id}", status_code=204, response_class=Response)
-async def delete_data_entry(entry_id: int) -> Response:
+async def delete_data_entry(entry_id: int, current_user: dict = Depends(get_current_user)) -> Response:
     """Delete a data entry from the log.
 
     If no other log entry covers the same month, also removes the
@@ -1010,24 +1237,26 @@ async def delete_data_entry(entry_id: int) -> Response:
     conn = _get_db_conn()
     try:
         existing = conn.execute(
-            "SELECT year_month, source FROM data_entry_log WHERE id = ?",
+            "SELECT year_month, source, user_id FROM data_entry_log WHERE id = ?",
             (entry_id,),
         ).fetchone()
         if existing is None:
             raise HTTPException(status_code=404, detail=f"Entry {entry_id} not found.")
+        if existing["user_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
 
         conn.execute("DELETE FROM data_entry_log WHERE id = ?", (entry_id,))
 
-        # Remove monthly_bill_records row only if no other entry covers this month
+        # Remove monthly_bill_records row only if no other entry covers this month for this user
         remaining = conn.execute(
-            "SELECT COUNT(*) FROM data_entry_log WHERE year_month = ?",
-            (existing["year_month"],),
+            "SELECT COUNT(*) FROM data_entry_log WHERE year_month = ? AND user_id = ?",
+            (existing["year_month"], current_user["id"]),
         ).fetchone()[0]
         if remaining == 0 and existing["source"] == "Manual":
             conn.execute(
                 "DELETE FROM monthly_bill_records "
-                "WHERE year_month = ? AND session_id = 'manual_entry'",
-                (existing["year_month"],),
+                "WHERE year_month = ? AND session_id = 'manual_entry' AND user_id = ?",
+                (existing["year_month"], current_user["id"]),
             )
 
         conn.commit()
@@ -1050,36 +1279,45 @@ async def delete_data_entry(entry_id: int) -> Response:
 # ---------------------------------------------------------------------------
 
 @app.delete("/data/all", status_code=204, response_class=Response)
-async def clear_all_data() -> Response:
-    """Permanently delete all rows from monthly_bill_records and data_entry_log,
-    and remove the trained model artefact from disk.
+async def clear_all_data(current_user: dict = Depends(get_current_user)) -> Response:
+    """Permanently delete the current user's rows from monthly_bill_records,
+    data_entry_log, training_log, and chat_history, and remove the user's
+    trained model artefact from disk.
 
-    This is a destructive, irreversible operation. The UI must present an
-    explicit confirmation step before calling this endpoint.
+    This is a destructive, irreversible operation scoped to the authenticated
+    user. The UI must present an explicit confirmation step before calling
+    this endpoint.
     """
-    from model.sarimax_model import SARIMAXModel as _Model
+    user_id = current_user["id"]
 
     conn = _get_db_conn()
     try:
-        conn.execute("DELETE FROM monthly_bill_records")
-        conn.execute("DELETE FROM data_entry_log")
+        conn.execute("DELETE FROM monthly_bill_records WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM data_entry_log WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM training_log WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM chat_history WHERE user_id = ?", (user_id,))
         conn.commit()
-        logger.warning("All training data cleared via /data/all endpoint.")
+        logger.warning(
+            "All training data cleared for user %s via /data/all endpoint.", user_id
+        )
     finally:
         conn.close()
 
-    # Remove artefact so the model reports 'not trained'
-    artefact_path = _Model()._artefact_path  # type: ignore[attr-defined]
+    # Remove user's model artefact and directory
+    user_model_dir = Path("data/models") / str(user_id)
+    user_model_path = user_model_dir / "sarimax_model.joblib"
     try:
-        if artefact_path.exists():
-            artefact_path.unlink()
-            logger.warning("Model artefact deleted: %s", artefact_path)
+        if user_model_path.exists():
+            user_model_path.unlink()
+            logger.warning("Model artefact deleted for user %s: %s", user_id, user_model_path)
+        if user_model_dir.exists():
+            shutil.rmtree(user_model_dir)
+            logger.warning("Model directory removed for user %s: %s", user_id, user_model_dir)
     except Exception as exc:
-        logger.error("Could not delete model artefact: %s", exc)
+        logger.error("Could not delete model artefact for user %s: %s", user_id, exc)
 
-    # Reset training state
-    global _training_state
-    _training_state = {"status": "idle", "error": None}
+    # Reset training state for this user
+    _training_states.pop(user_id, None)
 
     return Response(status_code=204)
 
@@ -1089,15 +1327,17 @@ async def clear_all_data() -> Response:
 # ---------------------------------------------------------------------------
 
 @app.get("/chat-history", response_model=list[ChatMessageRow])
-async def get_chat_history() -> list[ChatMessageRow]:
-    """Return the 100 most recent chat messages ordered by created_at ascending."""
+async def get_chat_history(current_user: dict = Depends(get_current_user)) -> list[ChatMessageRow]:
+    """Return the 100 most recent chat messages for the authenticated user, ordered by created_at ascending."""
     conn = _get_db_conn()
     try:
         rows = conn.execute(
             "SELECT id, role, text, created_at FROM ("
             "  SELECT id, role, text, created_at FROM chat_history"
+            "  WHERE user_id = ?"
             "  ORDER BY created_at DESC LIMIT 100"
-            ") ORDER BY created_at ASC"
+            ") ORDER BY created_at ASC",
+            (current_user["id"],),
         ).fetchall()
     finally:
         conn.close()
@@ -1109,14 +1349,14 @@ async def get_chat_history() -> list[ChatMessageRow]:
 # ---------------------------------------------------------------------------
 
 @app.post("/chat-history", response_model=ChatMessageRow, status_code=201)
-async def create_chat_message(body: ChatMessageCreate) -> ChatMessageRow:
-    """Persist a new chat message and return the created row with HTTP 201."""
+async def create_chat_message(body: ChatMessageCreate, current_user: dict = Depends(get_current_user)) -> ChatMessageRow:
+    """Persist a new chat message for the authenticated user and return the created row with HTTP 201."""
     created_at = datetime.now(timezone.utc).isoformat()
     conn = _get_db_conn()
     try:
         cursor = conn.execute(
-            "INSERT INTO chat_history (role, text, created_at) VALUES (?, ?, ?)",
-            (body.role, body.text, created_at),
+            "INSERT INTO chat_history (role, text, created_at, user_id) VALUES (?, ?, ?, ?)",
+            (body.role, body.text, created_at, current_user["id"]),
         )
         conn.commit()
         row_id = cursor.lastrowid
@@ -1134,11 +1374,11 @@ async def create_chat_message(body: ChatMessageCreate) -> ChatMessageRow:
 # ---------------------------------------------------------------------------
 
 @app.delete("/chat-history", status_code=204, response_class=Response)
-async def clear_chat_history() -> Response:
-    """Delete all rows from chat_history. Returns 204 No Content."""
+async def clear_chat_history(current_user: dict = Depends(get_current_user)) -> Response:
+    """Delete all chat messages for the authenticated user. Returns 204 No Content."""
     conn = _get_db_conn()
     try:
-        conn.execute("DELETE FROM chat_history")
+        conn.execute("DELETE FROM chat_history WHERE user_id = ?", (current_user["id"],))
         conn.commit()
     finally:
         conn.close()

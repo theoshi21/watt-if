@@ -172,3 +172,37 @@ Testing will be carried out in the following order:
 10. **Log defects** — record all failures in the Notes column and file detailed defect reports in the issue tracker
 11. **Re-test defects after fixes** — once a developer has addressed a defect, re-run the corresponding test case and update the Status column
 12. **Compile test evaluation report** — summarize results, list any outstanding defects, and provide a recommendation on release readiness
+
+---
+
+## 9. Suspension Criteria and Resumption Requirements
+
+*When to stop and when to resume testing*
+
+Testing will be **suspended** when any of the following conditions are met:
+
+- A defect is discovered that blocks a significant portion of the test cases from being executed (e.g., the FastAPI backend fails to start, the frontend build is broken, or the CSV upload is non-functional)
+- A critical data-loss bug is found that could corrupt the test database or wipe entries unexpectedly during a test run
+- The test environment becomes unstable (e.g., Ollama repeatedly crashes, the SQLite database becomes locked, or the frontend cannot connect to the backend)
+- More than 20% of test cases in a single module result in a Fail status due to the same underlying defect, making further execution of that module meaningless
+
+When suspension occurs, all affected test cases are marked **Blocked** and the blocking defect is filed in the issue tracker with full reproduction steps. Testing of unaffected modules may continue in parallel at the tester's discretion.
+
+Testing will **resume** when:
+
+- The blocking defect has been fixed and a new build is available for testing
+- The fix has been verified by the developer and the test environment has been reset to a clean state (data wiped and re-uploaded from `data/synthetic_2022_2025.csv` where necessary)
+- The QA Lead has confirmed the environment is stable before re-executing the blocked test cases
+
+---
+
+## 10. Roles and Responsibilities
+
+*Who is to carry out what task*
+
+| Role | Assigned | Responsibilities |
+|---|---|---|
+| **UI/UX Designer** | *(TBD)* | Test the visual layout, component alignment, and interactive behavior of all UI elements; verify dark/light mode, responsive design, and sidebar navigation; flag any design inconsistencies against the approved mockups |
+| **Project Manager** | *(TBD)* | Oversee the overall testing schedule and ensure milestones are met; coordinate between team members when blockers arise; review and sign off on the final Test Evaluation Report; make the go/no-go recommendation for release |
+| **Developer** | *(TBD)* | Set up and maintain the test environment (backend, frontend, Ollama); investigate and fix defects filed during testing; verify fixes locally before marking defects as resolved; support testers with environment issues |
+| **QA Lead** | *(TBD)* | Own the test plan and test cases; assign test cases to team members; track pass/fail counts and outstanding defects; enforce suspension and resumption criteria; compile the Test Evaluation Report after all test cases are executed |

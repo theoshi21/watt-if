@@ -116,8 +116,10 @@ export default function AppShell() {
         {/* Main content column */}
         <div className="app-shell__main">
           <TopBar onMenuClick={() => setSidebarOpen(true)} />
-          {/* Page content — flex:1 lets pages like AskPage fill remaining height */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* Page content — flex:1 lets pages like AskPage fill remaining height.
+              overflow-y: auto allows scrollable pages (Dashboard, Data Entry) to scroll
+              within the fixed-height shell while the TopBar stays pinned. */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }}>
             <Outlet />
           </div>
         </div>

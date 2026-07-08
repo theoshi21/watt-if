@@ -22,7 +22,7 @@ export default function ForecastPage() {
     error?.includes('503') || error?.includes('No trained model')
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="page-content" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <HorizonSelector selected={horizon} onChange={handleHorizonChange} disabled={loading} />
       {loading && <span role="status">Loading…</span>}
       {error && is503 && (

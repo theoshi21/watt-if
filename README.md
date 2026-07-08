@@ -17,6 +17,7 @@ Upload your monthly electricity bill history as a CSV or enter readings manually
 - **Bar chart for consumption** — kWh forecast shown as a bar chart with error bars; bill forecast shown as a line chart
 - **Month-aware fallback exog** — when no future exogenous values are provided, the model estimates using same-calendar-month historical averages and Philippine climate priors (never all-zero inputs)
 - **Correct forecast anchoring** — forecasts always project forward from your most recent data point, not from the training split cutoff
+- **Saved forecasts** — generated forecasts are persisted per user and restored on login
 
 ### Data Entry & Management
 - **Manual entry** — enter a month and kWh reading; rate, weather, and ENSO are auto-resolved from live APIs
@@ -39,12 +40,25 @@ Upload your monthly electricity bill history as a CSV or enter readings manually
 - **Auto bracket selection** — automatically picks the right consumption bracket based on your kWh; manual override available
 - **Residential and General Service** — supports multiple customer types
 
+### Account System & Security
+- **User registration** — email + password, validated with min 8 chars and proper email format
+- **JWT authentication** — 24-hour token expiry, bcrypt password hashing (cost 12)
+- **Login rate limiting** — max 10 failed attempts per email within a 15-minute window (HTTP 429)
+- **Timing-attack mitigation** — dummy bcrypt check on non-existent emails
+- **Default account** — auto-seeded `wattif@gmail.com` / `wattif` for first-time use
+- **Auto-login** — if no additional accounts exist, logs in with the default account automatically
+- **Change password** — requires current password confirmation
+- **Per-user data isolation** — all data (bills, entries, forecasts, chat history, models) is scoped to the authenticated user
+- **Auth guard** — all app pages redirect to login if unauthenticated
+- **Account settings page** — change password from the sidebar
+
 ### UI & App Shell
-- **Multi-page layout** — sidebar navigation with Dashboard, Forecast, Ask WATT-IF, Price Calculator, and Data Entry routes
+- **Multi-page layout** — sidebar navigation with Dashboard, Forecast, Ask WATT-IF, Price Calculator, Data Entry, and Account Settings routes
 - **Fixed sidebar** — always visible, never scrolls, fits the full viewport without overflow
 - **Dark / light mode** — toggle persisted to `localStorage`
 - **Color-coded stat cards** — dashboard cards have accent colors and icons (blue kWh, teal daily avg, amber temp, indigo humidity)
-- **Design token system** — all colors, fonts, and spacing use CSS custom properties; consistent across light and dark themes
+- **Anomaly detection** — alerts when forecasted consumption is significantly above your average
+- **Design token system** — all colors, fonts (Inter, Space Mono), and spacing use CSS custom properties; consistent across light and dark themes
 - **Offline-capable PWA** — installable as a desktop app; shows cached forecast data when offline
 - **Health check** — `/health` reports status of all four subsystems
 
@@ -54,6 +68,7 @@ Upload your monthly electricity bill history as a CSV or enter readings manually
 - **NOAA ENSO lookup** — El Niño / La Niña phase from the ONI index
 - **Model evaluation panel** — shows MAPE breakdown (kWh, price, average), accuracy rating, ARIMA order, and training window
 - **Synthetic dataset generator** — `data/generate_synthetic_2022_2025.py` produces a realistic 48-month Philippine household dataset (2022–2025) with real Meralco rate anchors, El Niño 2023, and La Niña 2022/2025
+- **Per-user model storage** — each user's trained SARIMAX artefact is stored in `data/models/<user_id>/`
 
 ---
 
@@ -91,7 +106,19 @@ pip install -r requirements.txt
 
 ---
 
-## 3. Install Ollama
+## 3. Environment variables
+
+Copy `.env.example` to `.env` and set your JWT secret:
+
+```
+JWT_SECRET=your-strong-random-secret-here
+```
+
+If not set, the app defaults to `dev-secret-change-in-production` (fine for local development).
+
+---
+
+## 4. Install Ollama
 
 Ollama runs the Qwen3 1.7B language model locally for the RAG chat feature.
 
@@ -109,7 +136,7 @@ Ollama starts as a background service automatically after install.
 
 ---
 
-## 4. Install frontend dependencies
+## 5. Install frontend dependencies
 
 ```bash
 cd frontend
@@ -118,7 +145,7 @@ npm install
 
 ---
 
-## 5. Run the application
+## 6. Run the application
 
 You need **two terminals** running simultaneously.
 
@@ -147,9 +174,16 @@ Open **http://localhost:5173** in your browser.
 
 ---
 
-## 6. Use the app
+## 7. Use the app
 
-### Step 1 — Add your bill data
+### Step 1 — Log in
+
+On first launch, the app auto-logs in with the default account (`wattif@gmail.com` / `wattif`). If you've registered additional accounts, you'll see the login page instead.
+
+- **Register** a new account from the login page
+- **Change password** via the Account Settings page in the sidebar
+
+### Step 2 — Add your bill data
 
 **Option A — Upload a CSV**
 
@@ -198,17 +232,19 @@ A live bill estimate (kWh × current rate) is shown as you type.
 
 **Minimum data:** 14 rows to train the model. 2–3 years (24–36 rows) gives the best forecast quality.
 
-### Step 2 — Train the model
+### Step 3 — Train the model
 
 After adding data, click **Train Model** on the Data Entry page. Training takes ~60 seconds. The panel shows live status (Idle → Training → Done/Failed) and displays the trained model's MAPE, accuracy rating, and training window once complete.
 
-### Step 3 — Generate a forecast
+### Step 4 — Generate a forecast
 
 Go to the **Forecast** page. Select **1m**, **3m**, **6m**, **9m**, or **12m** to generate a forecast. The charts show:
 - Bar chart: forecasted kWh consumption with 95% CI error bars per month
 - Line chart: estimated bill per month with 95% CI band
 
-### Step 4 — Ask questions (requires Ollama)
+If your forecast detects anomalies (consumption significantly above average), an alert card appears on the Dashboard.
+
+### Step 5 — Ask questions (requires Ollama)
 
 Go to **Ask WATT-IF**. Type a natural-language question. The assistant answers using the retrieved forecast data and historical analysis.
 
@@ -220,13 +256,13 @@ Go to **Ask WATT-IF**. Type a natural-language question. The assistant answers u
 
 Click **Clear chat** to wipe the conversation and start fresh (also clears the database history).
 
-### Step 5 — Calculate your bill
+### Step 6 — Calculate your bill
 
 Go to **Price Calculator**. Enter your monthly consumption in kWh and select your account type. The calculator shows the full Meralco bill breakdown by charge component (generation, transmission, system loss, distribution, supply, metering, and other charges) for the current rate schedule.
 
 ---
 
-## 7. Generate a synthetic dataset (optional)
+## 8. Generate a synthetic dataset (optional)
 
 To generate a realistic 48-month dataset for testing:
 
@@ -243,7 +279,7 @@ This produces `data/synthetic_2022_2025.csv` with:
 
 ---
 
-## 8. Regenerate EDA summaries (optional)
+## 9. Regenerate EDA summaries (optional)
 
 After uploading new data, EDA summaries are regenerated during retraining. To regenerate manually:
 
@@ -254,7 +290,7 @@ python data/ingest_eda.py   # ingests summaries into ChromaDB
 
 ---
 
-## 9. Install as a PWA (optional)
+## 10. Install as a PWA (optional)
 
 ### On the same machine
 
@@ -318,17 +354,20 @@ Make sure your phone is on the same Wi-Fi. Open `http://192.168.1.x:4173` in you
 WATT-IF/
 ├── api/
 │   ├── main.py                  # FastAPI app — all endpoints
+│   ├── auth.py                  # Auth endpoints (register, login, change-password)
+│   ├── dependencies.py          # JWT validation dependency (get_current_user)
+│   ├── rate_limiter.py          # In-memory login rate limiter (10 attempts / 15 min)
 │   └── schemas.py               # Pydantic request/response models
 ├── pipeline/
 │   ├── data_pipeline.py         # CSV ingestion, cleaning, SQLite persistence
 │   ├── feature_engineering.py   # Month-aware seasonality exog estimation
-│   └── models.py                # Shared dataclasses
+│   └── models.py                # Shared dataclasses (MonthlyRecord, ForecastMonth, etc.)
 ├── model/
 │   ├── sarimax_model.py         # SARIMAX training, forecasting, fallback exog
 │   └── retraining.py            # Retraining pipeline + EDA ingestion
 ├── storage/
 │   ├── db.py                    # SQLite schema (monthly_bill_records, data_entry_log,
-│   │                            #   chat_history, training_log)
+│   │                            #   chat_history, training_log, users, saved_forecasts)
 │   ├── vector_store.py          # ChromaDB forecast document store
 │   └── eda_store.py             # ChromaDB EDA summary store
 ├── rag/
@@ -343,17 +382,19 @@ WATT-IF/
 │   ├── generate_dataset.py      # Original synthetic dataset generator (2020–2024)
 │   ├── generate_synthetic_2022_2025.py  # Realistic PH synthetic dataset (2022–2025)
 │   ├── synthetic_2022_2025.csv  # Generated 48-month dataset
+│   ├── models/                  # Per-user trained model artefacts (data/models/<user_id>/)
 │   ├── monthly_bills.csv        # Simple dataset (year_month, kwh, price only)
 │   └── test_bills.csv           # Minimal test dataset
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx             # Entry point — BrowserRouter + ThemeProvider + ForecastProvider
-│   │   ├── App.tsx              # Route table
+│   │   ├── main.tsx             # Entry point — BrowserRouter + AuthProvider + ThemeProvider + ForecastProvider
+│   │   ├── App.tsx              # Route table (public: login/register, protected: all others)
 │   │   ├── api/
 │   │   │   ├── client.ts        # Typed API client (all endpoints)
 │   │   │   └── types.ts         # TypeScript interfaces mirroring Pydantic schemas
 │   │   ├── components/
 │   │   │   ├── AppShell.tsx     # Layout shell with sidebar + topbar + focus trap
+│   │   │   ├── AuthGuard.tsx    # Redirects to /login if not authenticated
 │   │   │   ├── Sidebar.tsx      # Fixed sidebar navigation
 │   │   │   ├── TopBar.tsx       # Page title + dark mode toggle + nav controls
 │   │   │   ├── ChatPanel.tsx    # Streaming chat UI with persistent history
@@ -365,30 +406,37 @@ WATT-IF/
 │   │   │   ├── ModelEvaluation.tsx # MAPE, order, training window display
 │   │   │   ├── HealthIndicator.tsx # Subsystem status dots
 │   │   │   ├── ModelStatusPill.tsx # Model active/trained status
-│   │   │   ├── AnomalyCard.tsx  # Anomaly alert banner
+│   │   │   ├── AnomalyCard.tsx  # Anomaly alert banner (SVG icon, no emoji)
 │   │   │   ├── DarkModeToggle.tsx
 │   │   │   └── OfflineBanner.tsx
 │   │   ├── context/
+│   │   │   ├── AuthContext.tsx    # JWT auth state, login/logout/register
 │   │   │   ├── ForecastContext.tsx # Shared forecast state
 │   │   │   └── ThemeContext.tsx    # Dark/light theme state
 │   │   ├── pages/
+│   │   │   ├── LoginPage.tsx       # Email + password login form
+│   │   │   ├── RegisterPage.tsx    # New account registration form
+│   │   │   ├── AccountSettingsPage.tsx # Change password
 │   │   │   ├── DashboardPage.tsx   # Stat cards + anomaly + chart
 │   │   │   ├── ForecastPage.tsx    # Horizon selector + forecast charts
 │   │   │   ├── AskPage.tsx         # Full-height chat panel
 │   │   │   ├── DataEntryPage.tsx   # Manual entry + upload + train + history
-│   │   │   ├── PriceCalculatorPage.tsx # Meralco bill calculator
-│   │   │   └── RecommendationsPage.tsx # Placeholder
+│   │   │   └── PriceCalculatorPage.tsx # Meralco bill calculator
 │   │   ├── styles/
 │   │   │   ├── tokens.css       # CSS custom properties (light + dark themes)
 │   │   │   └── index.css        # Global reset, .card, .btn-*, layout classes
 │   │   └── test/                # Vitest unit and property-based tests
 │   └── package.json
 ├── tests/                       # pytest test suites
-│   ├── api/
-│   ├── model/
-│   ├── rag/
-│   ├── storage/
-│   └── integration/
+│   ├── api/                     # test_api.py, test_auth.py
+│   ├── model/                   # test_sarimax_model.py, test_retraining.py
+│   ├── pipeline/                # test_data_pipeline.py
+│   ├── rag/                     # test_rag_service.py
+│   ├── storage/                 # test_vector_store.py
+│   └── integration/             # test_integration.py
+├── Documentation/               # Test case documentation (TC_*.md)
+├── design/                      # UI mockups (Mobile UI.png, Web UI.png)
+├── .env.example                 # Environment variable template
 └── requirements.txt
 ```
 
@@ -398,23 +446,31 @@ WATT-IF/
 
 | Method | Path | Description |
 |---|---|---|
+| `POST` | `/auth/register` | Create a new user account |
+| `POST` | `/auth/login` | Authenticate and receive a JWT |
+| `POST` | `/auth/change-password` | Update the current user's password |
+| `GET` | `/auth/has-users` | Check if additional accounts exist (for auto-login) |
 | `POST` | `/upload` | Ingest a CSV bill dataset |
 | `POST` | `/forecast` | Generate SARIMAX forecast (horizon 1/3/6/9/12) |
+| `GET` | `/saved-forecast` | Load the user's persisted forecast |
+| `POST` | `/saved-forecast` | Save the current forecast for the user |
 | `POST` | `/ask` | Streaming RAG answer (SSE) |
 | `POST` | `/retrain` | Manually trigger full model retrain |
 | `GET` | `/status` | Background training state (idle/running/done/failed) |
 | `GET` | `/model-info` | MAPE, order, training window, accuracy rating |
 | `GET` | `/health` | Subsystem health check |
-| `GET` | `/data-entries` | All entry history rows |
+| `GET` | `/data-entries` | All entry history rows for the authenticated user |
 | `POST` | `/data-entries` | Create a manual entry |
 | `PUT` | `/data-entries/{id}` | Update kWh or bill amount |
 | `DELETE` | `/data-entries/{id}` | Delete one entry |
-| `DELETE` | `/data/all` | Wipe all data and model artefact |
+| `DELETE` | `/data/all` | Wipe all user data and model artefact |
 | `GET` | `/chat-history` | Last 100 chat messages |
 | `POST` | `/chat-history` | Persist a chat message |
 | `DELETE` | `/chat-history` | Clear all chat history |
 | `GET` | `/meralco-rate` | Current Meralco rate schedule (cached 24h) |
 | `POST` | `/meralco-rate/refresh` | Force-refresh Meralco rate |
+
+> All endpoints except `/auth/*`, `/meralco-rate`, and `/health` require a valid JWT in the `Authorization: Bearer <token>` header.
 
 ---
 
@@ -463,7 +519,10 @@ The backend now backfills `bill_amount` with the computed price (kWh × resolved
 CSV rows are now mirrored to `data_entry_log` after a successful upload. Re-upload your CSV after restarting the backend.
 
 **Frontend shows blank page or CORS error**  
-Ensure the backend is running on port 8000 before opening the frontend.
+Ensure the backend is running on port 8000 before opening the frontend. The backend auto-detects your LAN IP for CORS.
 
 **Forecast looks flat or inaccurate**  
 Use at least 24 months of data spanning more than one calendar year. Including exogenous columns (temperature, rainfall, El Niño) significantly improves accuracy.
+
+**"Too many login attempts" (HTTP 429)**  
+The rate limiter blocks after 10 failed login attempts per email. Wait 15 minutes or restart the backend to reset.

@@ -160,7 +160,8 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-shell__overlay {
@@ -194,8 +195,12 @@ textarea:focus {
   .app-shell__main {
     grid-column: 1;
     width: 100%;
+    height: 100vh;
+    height: 100dvh; /* mobile viewport-aware */
+    overflow: hidden;
   }
 }
+
 
 /* ── Rating badges ────────────────────────────────────────── */
 .rating-badge {
@@ -279,4 +284,221 @@ textarea:focus {
 
 .nav-item--active:hover {
   background: var(--color-accent-hover);
+}
+
+/* ── Auth pages (Login / Register) ────────────────────────── */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh; /* mobile viewport-aware */
+  padding: 1.5rem;
+  background: var(--color-sidebar-bg);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(13, 148, 136, 0.06) 0%, transparent 50%);
+}
+
+.auth-page__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--color-accent-primary);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.auth-page__card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 2rem 1.75rem;
+}
+
+.auth-page__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1.75rem;
+}
+
+.auth-page__logo-img {
+  width: 80px;
+  height: auto;
+  margin-bottom: 0.5rem;
+}
+
+.auth-page__title {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.auth-page__subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.auth-page__error {
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-card);
+  background: var(--color-rating-poor-bg);
+  border: 1px solid var(--color-red);
+  color: var(--color-red);
+  font-size: 0.825rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.auth-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.auth-page__label {
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.auth-page__input {
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  background: var(--color-input-fill);
+  color: var(--color-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-page__input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.auth-page__input:focus {
+  outline: none;
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.auth-page__hint {
+  font-size: 0.725rem;
+  color: var(--color-text-muted);
+}
+
+.auth-page__hint--error {
+  color: var(--color-red);
+}
+
+.auth-page__submit {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.7rem;
+  font-size: 0.95rem;
+}
+
+.auth-page__footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.825rem;
+  color: var(--color-text-muted);
+}
+
+.auth-page__link {
+  color: var(--color-accent-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-page__link:hover {
+  text-decoration: underline;
+}
+
+/* ── Mobile adjustments for auth pages ────────────────────── */
+@media (max-width: 479px) {
+  .auth-page {
+    padding: 1rem;
+    align-items: flex-start;
+    padding-top: 15vh;
+  }
+
+  .auth-page__card {
+    padding: 1.5rem 1.25rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* ── Mobile content spacing ───────────────────────────────── */
+@media (max-width: 767px) {
+  /* Reduce page-level padding so content has more room */
+  .page-content {
+    padding: 1rem 0.5rem !important;
+    gap: 1rem !important;
+  }
+
+  /* Ask page needs minimal padding to maximize chat area */
+  .ask-page-content {
+    padding: 0.5rem !important;
+  }
+
+  /* Compact the TopBar on mobile */
+  .topbar-compact {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* Chart heights on mobile — tall enough to remain readable */
+  .chart-container-responsive {
+    height: 280px !important;
+  }
+
+  /* Tighter card padding on mobile */
+  .card {
+    padding: 1rem;
+  }
+
+  /* Reduce section headings spacing */
+  .section-heading-mobile {
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+@media (max-width: 479px) {
+  .chart-container-responsive {
+    height: 240px !important;
+  }
 }

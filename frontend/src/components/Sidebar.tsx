@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { HealthIndicator } from './HealthIndicator'
 import ModelStatusPill from './ModelStatusPill'
+import { useAuth } from '../context/AuthContext'
 import logo from '../../wattif.png'
 
 /**
@@ -11,10 +12,10 @@ import logo from '../../wattif.png'
  * - WATT-IF logo + "ENERGY INTELLIGENCE" subtitle
  * - 5 NavLink items with active class callback
  * - HealthIndicator below nav
- * - ModelStatusPill above Settings
- * - Settings link at the bottom
+ * - ModelStatusPill above user info
+ * - User email display (truncated at 24 chars) + Logout button
  *
- * Requirements: 5.1, 5.2, 5.3, 5.4, 5.8, 14.1, 18.1
+ * Requirements: 5.1, 5.2, 5.3, 5.4, 5.8, 10.1, 10.2, 10.3, 10.4, 10.5, 14.1, 18.1
  */
 
 export interface SidebarProps {
@@ -86,12 +87,36 @@ const navItems: NavItem[] = [
   },
 ]
 
-const settingsIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-)
+/** Truncate email to 24 characters + ellipsis if needed */
+function truncateEmail(email: string): string {
+  if (email.length > 24) {
+    return email.slice(0, 24) + '\u2026'
+  }
+  return email
+}
+
+const emailDisplayStyle: React.CSSProperties = {
+  padding: '0.25rem 1.25rem',
+  fontSize: '0.75rem',
+  color: 'var(--color-text-muted)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+const logoutButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  width: '100%',
+  padding: '0.5rem 1.25rem',
+  border: 'none',
+  background: 'none',
+  color: 'var(--color-text-secondary)',
+  fontSize: '0.85rem',
+  cursor: 'pointer',
+  textAlign: 'left',
+}
 
 const sidebarStyle: React.CSSProperties = {
   height: '100vh',
@@ -163,6 +188,8 @@ const healthWrapperStyle: React.CSSProperties = {
 
 export default function Sidebar({ open: _open, onClose: _onClose }: SidebarProps) {
   const firstNavRef = useRef<HTMLAnchorElement>(null)
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   // Move focus to first nav link when sidebar opens on mobile
   useEffect(() => {
@@ -170,6 +197,15 @@ export default function Sidebar({ open: _open, onClose: _onClose }: SidebarProps
       firstNavRef.current.focus()
     }
   }, [_open])
+
+  const handleLogout = () => {
+    try {
+      logout()
+    } catch {
+      // Network errors during logout — still clear local token (already done by logout())
+    }
+    navigate('/login')
+  }
 
   return (
     <nav aria-label="Main navigation" style={sidebarStyle}>
@@ -212,21 +248,36 @@ export default function Sidebar({ open: _open, onClose: _onClose }: SidebarProps
 
       <hr style={dividerStyle} />
 
-      {/* ── Bottom section: ModelStatusPill + Settings ──────── */}
+      {/* ── Bottom section: ModelStatusPill + User email + Logout ── */}
       <div style={bottomSectionStyle}>
         <div style={pillWrapperStyle}>
           <ModelStatusPill />
         </div>
 
-        <a
-          href="#"
-          className="nav-item"
-          style={{ textDecoration: 'none' }}
-          aria-label="Settings"
-        >
-          {settingsIcon}
-          Settings
-        </a>
+        {user && (
+          <>
+            <div
+              style={emailDisplayStyle}
+              title={user.email}
+              aria-label={`Logged in as ${user.email}`}
+            >
+              {truncateEmail(user.email)}
+            </div>
+            <button
+              onClick={handleLogout}
+              style={logoutButtonStyle}
+              className="nav-item"
+              aria-label="Logout"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Logout
+            </button>
+          </>
+        )}
       </div>
     </nav>
   )
