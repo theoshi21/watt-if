@@ -201,6 +201,15 @@ textarea:focus {
     height: 100vh;
     height: 100dvh; /* mobile viewport-aware */
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Ensure TopBar is always visible and never scrolls away on mobile */
+  .topbar-compact {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
   }
 }
 

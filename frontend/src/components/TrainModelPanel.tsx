@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { getModelInfo, getTrainingStatus, triggerRetrain } from '../api/client'
 import type { ModelInfoResponse } from '../api/types'
+import { useForecast } from '../context/ForecastContext'
 
 type TrainStatus = 'idle' | 'running' | 'done' | 'failed'
 
@@ -48,6 +49,7 @@ export const TrainModelPanel: React.FC = () => {
   const [modelInfo, setModelInfo] = useState<ModelInfoResponse | null>(null)
   const [infoLoading, setInfoLoading] = useState(true)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { clearMonths } = useForecast()
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -84,6 +86,8 @@ export const TrainModelPanel: React.FC = () => {
           stopPolling()
           setTrainStatus('done')
           fetchModelInfo()
+          // Clear stale forecast — user must generate a fresh one with the new model
+          clearMonths()
         } else if (s.status === 'failed') {
           stopPolling()
           setTrainStatus('failed')

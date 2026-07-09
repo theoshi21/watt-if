@@ -346,7 +346,8 @@ export function DataEntryPage() {
         source: 'Manual',
       })
       setRows(prev => [row, ...prev])
-      setYearMonth(nowYM()); setKwh(''); setBill(''); setRateOverride('')
+      // Keep yearMonth as-is (better UX for consecutive entries) — only clear value fields
+      setKwh(''); setBill(''); setRateOverride('')
     } catch (e) {
       setSubmitErr(e instanceof Error ? e.message : 'Submit failed.')
     } finally {
@@ -502,7 +503,7 @@ export function DataEntryPage() {
       <section
         className="card"
         aria-labelledby="history-hd"
-        style={{ padding: 0, overflow: 'hidden' }}
+        style={{ padding: 0 }}
       >
         {/* Header — padded normally */}
         <div style={{ padding: '1.25rem 1.25rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>

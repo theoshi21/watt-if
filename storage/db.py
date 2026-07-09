@@ -30,7 +30,7 @@ DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "wattif.db"
 
 _DDL_MONTHLY_BILL_RECORDS = """
 CREATE TABLE IF NOT EXISTS monthly_bill_records (
-    year_month          TEXT PRIMARY KEY,
+    year_month          TEXT NOT NULL,
     kwh                 REAL NOT NULL,
     price               REAL NOT NULL,
     meralco_rate        REAL NOT NULL DEFAULT 0.0,
@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS monthly_bill_records (
     rainy_days_count    INTEGER NOT NULL DEFAULT 0,
     is_el_nino          INTEGER NOT NULL DEFAULT 0,
     session_id          TEXT NOT NULL,
-    created_at          TEXT NOT NULL
+    created_at          TEXT NOT NULL,
+    user_id             INTEGER REFERENCES users(id),
+    PRIMARY KEY (user_id, year_month)
 );
 """
 
@@ -164,6 +166,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
 
     Steps:
       1. Add ``user_id`` column to tables that lack it.
+      1b. Migrate monthly_bill_records to composite PK (user_id, year_month).
       2. Seed the default account (wattif@gmail.com / wattif).
       3. Assign orphaned rows (NULL user_id) to the default account.
 
@@ -187,6 +190,58 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
                     f"ALTER TABLE {table} ADD COLUMN user_id INTEGER REFERENCES users(id)"
                 )
         conn.commit()
+
+        # --- Step 1b: Migrate monthly_bill_records to composite PK -----------
+        # Check if the old schema still has year_month as the sole PK.
+        # We detect this by checking the table_info: if user_id is NOT part of
+        # the PK (pk column == 0 in pragma), we need to rebuild.
+        cursor = conn.execute("PRAGMA table_info(monthly_bill_records)")
+        columns_info = cursor.fetchall()
+        user_id_is_pk = False
+        for col in columns_info:
+            if col[1] == "user_id" and col[5] > 0:  # col[5] is the pk flag
+                user_id_is_pk = True
+                break
+
+        if not user_id_is_pk and _table_has_column(conn, "monthly_bill_records", "user_id"):
+            logger.info(
+                "Migrating monthly_bill_records to composite PK (user_id, year_month)…"
+            )
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS monthly_bill_records_new (
+                    year_month          TEXT NOT NULL,
+                    kwh                 REAL NOT NULL,
+                    price               REAL NOT NULL,
+                    meralco_rate        REAL NOT NULL DEFAULT 0.0,
+                    avg_temperature     REAL NOT NULL DEFAULT 0.0,
+                    avg_humidity        REAL NOT NULL DEFAULT 0.0,
+                    total_rainfall_mm   REAL NOT NULL DEFAULT 0.0,
+                    holiday_count       INTEGER NOT NULL DEFAULT 0,
+                    weekend_count       INTEGER NOT NULL DEFAULT 0,
+                    hot_days_count      INTEGER NOT NULL DEFAULT 0,
+                    rainy_days_count    INTEGER NOT NULL DEFAULT 0,
+                    is_el_nino          INTEGER NOT NULL DEFAULT 0,
+                    session_id          TEXT NOT NULL,
+                    created_at          TEXT NOT NULL,
+                    user_id             INTEGER REFERENCES users(id),
+                    PRIMARY KEY (user_id, year_month)
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO monthly_bill_records_new
+                SELECT year_month, kwh, price, meralco_rate, avg_temperature,
+                       avg_humidity, total_rainfall_mm, holiday_count, weekend_count,
+                       hot_days_count, rainy_days_count, is_el_nino, session_id,
+                       created_at, user_id
+                FROM monthly_bill_records
+            """)
+            conn.execute("DROP TABLE monthly_bill_records")
+            conn.execute(
+                "ALTER TABLE monthly_bill_records_new RENAME TO monthly_bill_records"
+            )
+            conn.commit()
+            logger.info("monthly_bill_records migrated to composite PK successfully.")
+
         logger.info("Schema migration: user_id columns verified/added.")
 
         # --- Step 2: Default account seeding ---------------------------------

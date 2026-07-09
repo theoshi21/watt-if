@@ -199,6 +199,20 @@ def _run_retraining_background(previous_latest: str | None, user_id: int) -> Non
             conn.commit()
 
             _training_states[user_id] = {"status": "done", "error": None}
+
+            # Clear saved forecast since the model has changed — user needs
+            # to generate a fresh forecast with the retrained model.
+            try:
+                conn2 = get_connection(DEFAULT_DB_PATH)
+                init_db(conn2)
+                conn2.execute(
+                    "DELETE FROM saved_forecasts WHERE user_id = ?", (user_id,)
+                )
+                conn2.commit()
+                conn2.close()
+                logger.info("Cleared saved forecast for user %d after retraining.", user_id)
+            except Exception as exc_sf:
+                logger.warning("Failed to clear saved forecast for user %d: %s", user_id, exc_sf)
         except Exception as exc:
             logger.error("Background retraining failed for user %d: %s", user_id, exc, exc_info=True)
             _training_states[user_id] = {"status": "failed", "error": str(exc)}
@@ -438,17 +452,9 @@ async def upload_csv(file: UploadFile = File(...), current_user: dict = Depends(
             except ValueError:
                 previous_latest = None
 
-            result = pipeline.ingest(file_path=tmp_path)
+            result = pipeline.ingest(file_path=tmp_path, user_id=user_id)
         finally:
             os.unlink(tmp_path)
-
-        # Set user_id on all just-inserted rows that have no user_id yet
-        if result.validation_status == "ok" and result.row_count > 0:
-            conn.execute(
-                "UPDATE monthly_bill_records SET user_id = ? WHERE user_id IS NULL",
-                (user_id,),
-            )
-            conn.commit()
 
         # Mirror ingested rows into data_entry_log so Entry History shows them.
         # Delete existing 'CSV Upload' rows for those months first, then
@@ -945,8 +951,8 @@ async def get_data_entries(current_user: dict = Depends(get_current_user)) -> li
             mbr = conn.execute(
                 "SELECT meralco_rate, avg_temperature, avg_humidity, total_rainfall_mm, "
                 "holiday_count, weekend_count, hot_days_count, rainy_days_count, is_el_nino "
-                "FROM monthly_bill_records WHERE year_month = ?",
-                (entry["year_month"],),
+                "FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
+                (entry["year_month"], current_user["id"]),
             ).fetchone()
             result.append(_enrich_entry_row(entry, mbr))
     finally:
@@ -1037,18 +1043,30 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
         except Exception as exc:
             logger.warning("Live Meralco scrape failed for %s: %s — falling back.", year_month, exc)
 
-    # Exact match in DB for historical months
-    row = conn.execute(
-        "SELECT meralco_rate FROM monthly_bill_records WHERE year_month = ?",
-        (year_month,),
-    ).fetchone()
+    # Exact match in DB for historical months (scoped to user if available)
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT meralco_rate FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
+            (year_month, user_id),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT meralco_rate FROM monthly_bill_records WHERE year_month = ?",
+            (year_month,),
+        ).fetchone()
     if row and row[0]:
         return float(row[0])
 
     # Most recent rate in DB
-    row = conn.execute(
-        "SELECT meralco_rate FROM monthly_bill_records ORDER BY year_month DESC LIMIT 1"
-    ).fetchone()
+    if user_id is not None:
+        row = conn.execute(
+            "SELECT meralco_rate FROM monthly_bill_records WHERE user_id = ? ORDER BY year_month DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT meralco_rate FROM monthly_bill_records ORDER BY year_month DESC LIMIT 1"
+        ).fetchone()
     if row and row[0]:
         return float(row[0])
 
@@ -1130,11 +1148,25 @@ def _bridge_entry_to_bill_records(
 
     conn.execute(
         """
-        INSERT OR REPLACE INTO monthly_bill_records
+        INSERT INTO monthly_bill_records
             (year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
              total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
              rainy_days_count, is_el_nino, session_id, created_at, user_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, year_month) DO UPDATE SET
+            kwh = excluded.kwh,
+            price = excluded.price,
+            meralco_rate = excluded.meralco_rate,
+            avg_temperature = excluded.avg_temperature,
+            avg_humidity = excluded.avg_humidity,
+            total_rainfall_mm = excluded.total_rainfall_mm,
+            holiday_count = excluded.holiday_count,
+            weekend_count = excluded.weekend_count,
+            hot_days_count = excluded.hot_days_count,
+            rainy_days_count = excluded.rainy_days_count,
+            is_el_nino = excluded.is_el_nino,
+            session_id = excluded.session_id,
+            created_at = excluded.created_at
         """,
         (
             year_month,
@@ -1212,8 +1244,8 @@ async def create_data_entry(body: DataEntryCreate, current_user: dict = Depends(
             # from monthly_bill_records so the history always shows a value.
             if body.bill_amount is None:
                 mbr_price = conn.execute(
-                    "SELECT price FROM monthly_bill_records WHERE year_month = ?",
-                    (body.year_month,),
+                    "SELECT price FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
+                    (body.year_month, current_user["id"]),
                 ).fetchone()
                 if mbr_price:
                     conn.execute(
@@ -1232,8 +1264,8 @@ async def create_data_entry(body: DataEntryCreate, current_user: dict = Depends(
         mbr = conn.execute(
             "SELECT meralco_rate, avg_temperature, avg_humidity, total_rainfall_mm, "
             "holiday_count, weekend_count, hot_days_count, rainy_days_count, is_el_nino "
-            "FROM monthly_bill_records WHERE year_month = ?",
-            (body.year_month,),
+            "FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
+            (body.year_month, current_user["id"]),
         ).fetchone() if body.source == "Manual" else None
 
     finally:
@@ -1303,8 +1335,8 @@ async def update_data_entry(entry_id: int, body: DataEntryUpdate, current_user: 
         mbr = conn.execute(
             "SELECT meralco_rate, avg_temperature, avg_humidity, total_rainfall_mm, "
             "holiday_count, weekend_count, hot_days_count, rainy_days_count, is_el_nino "
-            "FROM monthly_bill_records WHERE year_month = ?",
-            (existing["year_month"],),
+            "FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
+            (existing["year_month"], current_user["id"]),
         ).fetchone()
 
         previous_latest_upd: str | None = None
