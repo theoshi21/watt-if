@@ -1,9 +1,9 @@
-# Test Cases — Ask WATT-IF (Chat)
+# Test Cases — Chat Assistant
 
-**Module:** Ask WATT-IF — Chat
-**Prefix:** CHT
-**Document Version:** 1.0
-**Date:** July 2026
+**Module:** Module 4 — Chat Assistant (RAG Questions, Streaming, History)  
+**Prefix:** CHT  
+**Document Version:** 2.0  
+**Date:** July 2026  
 **Prepared by:** QA Team
 
 ---

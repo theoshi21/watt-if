@@ -1,9 +1,9 @@
 # Test Cases — Price Calculator
 
-**Module:** Price Calculator
-**Prefix:** PCT
-**Document Version:** 1.0
-**Date:** July 2026
+**Module:** Module 5 — Price Calculator (Rate Scraping, Brackets, Bill Breakdown)  
+**Prefix:** PCT  
+**Document Version:** 2.0  
+**Date:** July 2026  
 **Prepared by:** QA Team
 
 ---

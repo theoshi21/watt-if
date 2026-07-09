@@ -1,9 +1,9 @@
 # Test Cases — Settings
 
-**Module:** Settings (User Preferences, Notifications, Model Retraining, Data & Privacy)
-**Prefix:** SET
-**Document Version:** 1.0
-**Date:** July 2026
+**Module:** Module 6 — Settings (User Preferences, Notifications, Model Retraining, Data & Privacy)  
+**Prefix:** SET  
+**Document Version:** 2.0  
+**Date:** July 2026  
 **Prepared by:** QA Team
 
 ---
