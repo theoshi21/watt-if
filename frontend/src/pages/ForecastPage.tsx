@@ -52,6 +52,11 @@ export default function ForecastPage() {
         </div>
       )}
       {!loading && !error && months.length > 0 && <ForecastChart months={months} />}
+      {!loading && !error && months.length === 0 && (
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          No forecast available. Select a horizon above and click to generate a new forecast.
+        </p>
+      )}
     </div>
   )
 }

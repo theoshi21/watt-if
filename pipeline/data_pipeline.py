@@ -57,7 +57,7 @@ class DataPipeline:
     def __init__(self, db_conn: sqlite3.Connection) -> None:
         self._conn = db_conn
 
-    def ingest(self, file_path: str, session_id: str = "default") -> IngestResult:
+    def ingest(self, file_path: str, session_id: str = "default", user_id: int | None = None) -> IngestResult:
         """Validate, clean, and ingest a monthly CSV bill dataset."""
 
         # Step 0 — Load CSV
@@ -128,16 +128,30 @@ class DataPipeline:
         # Step 5 — Sort
         df = df.sort_values("year_month").reset_index(drop=True)
 
-        # Step 6 — Persist to SQLite
+        # Step 6 — Persist to SQLite (with user_id for composite PK isolation)
         created_at = datetime.now(timezone.utc).isoformat()
         cursor = self._conn.cursor()
         cursor.executemany(
             """
-            INSERT OR REPLACE INTO monthly_bill_records
+            INSERT INTO monthly_bill_records
                 (year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
                  total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
-                 rainy_days_count, is_el_nino, session_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 rainy_days_count, is_el_nino, session_id, created_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, year_month) DO UPDATE SET
+                kwh = excluded.kwh,
+                price = excluded.price,
+                meralco_rate = excluded.meralco_rate,
+                avg_temperature = excluded.avg_temperature,
+                avg_humidity = excluded.avg_humidity,
+                total_rainfall_mm = excluded.total_rainfall_mm,
+                holiday_count = excluded.holiday_count,
+                weekend_count = excluded.weekend_count,
+                hot_days_count = excluded.hot_days_count,
+                rainy_days_count = excluded.rainy_days_count,
+                is_el_nino = excluded.is_el_nino,
+                session_id = excluded.session_id,
+                created_at = excluded.created_at
             """,
             [
                 (
@@ -155,6 +169,7 @@ class DataPipeline:
                     int(row["is_el_nino"]),
                     session_id,
                     created_at,
+                    user_id,
                 )
                 for _, row in df.iterrows()
             ],
@@ -176,20 +191,33 @@ class DataPipeline:
             cleaning_report=cleaning_report,
         )
 
-    def get_monthly_records(self, start: str, end: str) -> list[MonthlyRecord]:
+    def get_monthly_records(self, start: str, end: str, user_id: int | None = None) -> list[MonthlyRecord]:
         """Return monthly bill records from SQLite between start and end (inclusive)."""
         cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            SELECT year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
-                   total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
-                   rainy_days_count, is_el_nino
-            FROM monthly_bill_records
-            WHERE year_month BETWEEN ? AND ?
-            ORDER BY year_month
-            """,
-            (start, end),
-        )
+        if user_id is not None:
+            cursor.execute(
+                """
+                SELECT year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
+                       total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
+                       rainy_days_count, is_el_nino
+                FROM monthly_bill_records
+                WHERE year_month BETWEEN ? AND ? AND user_id = ?
+                ORDER BY year_month
+                """,
+                (start, end, user_id),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT year_month, kwh, price, meralco_rate, avg_temperature, avg_humidity,
+                       total_rainfall_mm, holiday_count, weekend_count, hot_days_count,
+                       rainy_days_count, is_el_nino
+                FROM monthly_bill_records
+                WHERE year_month BETWEEN ? AND ?
+                ORDER BY year_month
+                """,
+                (start, end),
+            )
         rows = cursor.fetchall()
         return [
             MonthlyRecord(
@@ -209,12 +237,18 @@ class DataPipeline:
             for row in rows
         ]
 
-    def get_training_window_extent(self) -> tuple[str, str]:
+    def get_training_window_extent(self, user_id: int | None = None) -> tuple[str, str]:
         """Return (earliest_year_month, latest_year_month) of persisted records."""
         cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT MIN(year_month), MAX(year_month) FROM monthly_bill_records"
-        )
+        if user_id is not None:
+            cursor.execute(
+                "SELECT MIN(year_month), MAX(year_month) FROM monthly_bill_records WHERE user_id = ?",
+                (user_id,),
+            )
+        else:
+            cursor.execute(
+                "SELECT MIN(year_month), MAX(year_month) FROM monthly_bill_records"
+            )
         row = cursor.fetchone()
         min_ym, max_ym = row[0], row[1]
         if min_ym is None or max_ym is None:

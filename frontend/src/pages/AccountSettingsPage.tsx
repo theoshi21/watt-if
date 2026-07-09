@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getSettings, updateSettings, clearChatHistory, clearAllData } from '../api/client'
+import { getSettings, updateSettings, clearChatHistory, clearAllData, getDataEntries } from '../api/client'
 import type { UserSettings, UserSettingsUpdate } from '../api/types'
 
 // ── Shared style tokens ──────────────────────────────────────────────────────
@@ -93,12 +93,19 @@ export default function AccountSettingsPage() {
   const [confirmClearChat, setConfirmClearChat] = useState(false)
   const [confirmClearAll, setConfirmClearAll] = useState(false)
 
+  // Data count for min_datapoints validation feedback
+  const [dataEntryCount, setDataEntryCount] = useState<number | null>(null)
+
   // ── Load settings on mount ─────────────────────────────────────────────────
   useEffect(() => {
     getSettings()
       .then(s => setSettings(s))
       .catch(err => setSettingsError(err.message))
       .finally(() => setLoadingSettings(false))
+    // Fetch current data entry count for min_datapoints validation
+    getDataEntries()
+      .then(entries => setDataEntryCount(entries.length))
+      .catch(() => { /* non-critical */ })
   }, [])
 
   // ── Save helper ────────────────────────────────────────────────────────────
@@ -627,6 +634,11 @@ export default function AccountSettingsPage() {
             <span style={{ ...meta, display: 'block', marginTop: '0.25rem' }}>
               Model won't train until you have at least this many months of data.
             </span>
+            {dataEntryCount !== null && settings?.min_datapoints_to_train != null && dataEntryCount < settings.min_datapoints_to_train && (
+              <span style={{ display: 'block', marginTop: '0.3rem', fontFamily: 'var(--font-sans)', fontSize: '0.78rem', color: 'var(--color-red)' }}>
+                ⚠ You currently have {dataEntryCount} month(s) of data — need at least {settings.min_datapoints_to_train} to train.
+              </span>
+            )}
           </div>
         </div>
       </section>

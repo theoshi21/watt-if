@@ -11,6 +11,7 @@ interface ForecastContextValue {
   setHorizon: (h: Horizon) => void
   loadForecast: (h: Horizon) => Promise<void>
   setMonths: (m: ForecastMonth[]) => void
+  clearMonths: () => void
 }
 
 const ForecastContext = createContext<ForecastContextValue | null>(null)
@@ -94,6 +95,12 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // intentionally run once on mount only
 
+  const clearMonths = useCallback(() => {
+    setMonths([])
+    setWarnings([])
+    setError(null)
+  }, [])
+
   const value: ForecastContextValue = {
     months,
     horizon,
@@ -103,6 +110,7 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setHorizon,
     loadForecast,
     setMonths,
+    clearMonths,
   }
 
   return <ForecastContext.Provider value={value}>{children}</ForecastContext.Provider>
