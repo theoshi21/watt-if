@@ -59,7 +59,7 @@ class AccountSettingsPage(BasePage):
     CHAT_MAX_HISTORY_INPUT = (By.ID, "chat-max-history")
     AUTO_CLEAR_TOGGLE = (
         By.CSS_SELECTOR,
-        "section[aria-labelledby='chat-prefs-hd'] label.toggle > input[type='checkbox']",
+        "section[aria-labelledby='chat-prefs-hd'] label.toggle",
     )
 
     # --- Data & Privacy Section Locators ---
@@ -88,7 +88,7 @@ class AccountSettingsPage(BasePage):
     # --- Model Retraining Section Locators ---
     AUTO_RETRAIN_TOGGLE = (
         By.CSS_SELECTOR,
-        "section[aria-labelledby='retrain-hd'] label.toggle > input[type='checkbox']",
+        "section[aria-labelledby='retrain-hd'] label.toggle",
     )
     MIN_DATAPOINTS_INPUT = (By.ID, "min-datapoints")
 
@@ -219,9 +219,11 @@ class AccountSettingsPage(BasePage):
         rate_input.send_keys(Keys.TAB)
 
     def clear_rate_override(self) -> None:
-        """Click the Clear button to remove the rate override."""
-        clear_btn = self.wait_for_clickable(self.RATE_OVERRIDE_CLEAR_BUTTON)
-        clear_btn.click()
+        """Clear the rate override input field and trigger save."""
+        from selenium.webdriver.common.keys import Keys
+        input_el = self.wait_for_element(self.RATE_OVERRIDE_INPUT)
+        input_el.clear()
+        input_el.send_keys(Keys.TAB)
 
     # --- Chat Preferences Methods ---
 
@@ -237,9 +239,9 @@ class AccountSettingsPage(BasePage):
         input_el.send_keys(Keys.TAB)
 
     def toggle_auto_clear(self) -> None:
-        """Toggle the auto-clear chat on logout checkbox."""
-        checkbox = self.wait_for_clickable(self.AUTO_CLEAR_TOGGLE)
-        checkbox.click()
+        """Toggle the auto-clear chat on logout checkbox via its label."""
+        label = self.wait_for_clickable(self.AUTO_CLEAR_TOGGLE)
+        label.click()
 
     # --- Data & Privacy Methods ---
 
@@ -293,9 +295,9 @@ class AccountSettingsPage(BasePage):
     # --- Model Retraining Methods ---
 
     def toggle_auto_retrain(self) -> None:
-        """Toggle the auto-retrain on CSV upload checkbox."""
-        checkbox = self.wait_for_clickable(self.AUTO_RETRAIN_TOGGLE)
-        checkbox.click()
+        """Toggle the auto-retrain on CSV upload checkbox via its label."""
+        label = self.wait_for_clickable(self.AUTO_RETRAIN_TOGGLE)
+        label.click()
 
     def set_min_data_points(self, value: int | str) -> None:
         """Enter a minimum data points value and trigger blur to save.

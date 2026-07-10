@@ -74,8 +74,14 @@ class DataEntryPage(BasePage):
         super().__init__(driver, base_url)
 
     def navigate_to_data_entry(self) -> None:
-        """Navigate to the Data Entry page."""
+        """Navigate to the Data Entry page and wait for it to load."""
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
         self.navigate("/data-entry")
+        # Poll until the page content is visible (form or history section)
+        WebDriverWait(self.driver, 30).until(
+            EC.presence_of_element_located(self.HISTORY_SECTION)
+        )
 
     def add_entry(
         self,

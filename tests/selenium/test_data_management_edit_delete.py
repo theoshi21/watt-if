@@ -30,9 +30,8 @@ def test_DM_22_edit_mode_display(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to edit
-    page.add_entry("2029-01", 300)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-01", 300)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Click Edit on the first row
     page.click_edit_button(0)
@@ -56,9 +55,8 @@ def test_DM_23_edit_valid_kwh(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to edit
-    page.add_entry("2029-02", 300)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-02", 300)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Edit the entry with a new valid kWh value
     page.edit_entry(0, 500)
@@ -81,9 +79,8 @@ def test_DM_24_edit_invalid_zero(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to edit
-    page.add_entry("2029-03", 350)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-03", 350)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Get original row text
     original_row_text = page.get_row_text(0)
@@ -117,9 +114,8 @@ def test_DM_25_edit_exceeds_max(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to edit
-    page.add_entry("2029-04", 400)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-04", 400)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Get original row text
     original_row_text = page.get_row_text(0)
@@ -151,9 +147,8 @@ def test_DM_26_edit_cancel(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to edit
-    page.add_entry("2029-05", 275)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-05", 275)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Get original row text
     original_row_text = page.get_row_text(0)
@@ -183,13 +178,11 @@ def test_DM_27_single_edit_mode(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create two entries
-    page.add_entry("2029-06", 200)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-06", 200)
+    time.sleep(2)  # Wait for entry to be created via API
 
-    page.add_entry("2029-07", 250)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-07", 250)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Click Edit on the first row (row 0)
     page.click_edit_button(0)
@@ -218,9 +211,8 @@ def test_DM_28_delete_confirmation(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to delete
-    page.add_entry("2029-08", 310)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-08", 310)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Click Delete button on the first row
     page.delete_entry(0)
@@ -239,9 +231,8 @@ def test_DM_29_delete_confirmed(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry to delete
-    page.add_entry("2029-09", 420)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-09", 420)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Get row count before deletion
     rows_before = len(page.get_entry_rows())
@@ -270,9 +261,8 @@ def test_DM_30_delete_cancelled(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create an entry
-    page.add_entry("2029-10", 380)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-10", 380)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Get row count before attempted deletion
     rows_before = len(page.get_entry_rows())
@@ -303,9 +293,8 @@ def test_DM_31_delete_last_entry(logged_in_driver, base_url):
     page.navigate_to_data_entry()
 
     # Create a single entry (this is a fresh test user so history should be empty)
-    page.add_entry("2029-11", 260)
-    page.get_success_message()
-    time.sleep(1)
+    page.add_entry("2027-11", 260)
+    time.sleep(2)  # Wait for entry to be created via API
 
     # Verify we have exactly 1 row
     rows = page.get_entry_rows()

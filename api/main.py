@@ -1573,66 +1573,90 @@ async def meralco_rate_refresh() -> MeralcoRateResponse:
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> JSONResponse:
-    """Probe each subsystem and return operational / degraded status."""
+    """Probe each subsystem and return operational / degraded status.
+
+    All checks run concurrently via asyncio.to_thread to avoid sequential
+    blocking on I/O-bound subsystem probes (disk, network, ChromaDB init).
+    """
+    import asyncio
 
     subsystems: dict[str, Literal["operational", "degraded"]] = {}
-
-    # ── Data Pipeline / SQLite ────────────────────────────────────────────────
-    try:
-        conn = _get_db_conn()
-        conn.execute("SELECT 1 FROM monthly_bill_records LIMIT 1")
-        conn.close()
-        subsystems["data_pipeline"] = "operational"
-    except Exception as exc:
-        logger.warning("Health: data_pipeline degraded — %s", exc)
-        subsystems["data_pipeline"] = "degraded"
-
-    # ── SARIMAX model artefact ────────────────────────────────────────────────
     model_trained_at: str | None = None
-    try:
-        model = SARIMAXModel()
-        model.load()
-        subsystems["sarimax_model"] = "operational"
-        artefact = model._artefact  # type: ignore[attr-defined]
-        if artefact:
-            model_trained_at = artefact.get("trained_at")
-    except FileNotFoundError:
-        subsystems["sarimax_model"] = "degraded"
-    except Exception as exc:
-        logger.warning("Health: sarimax_model degraded — %s", exc)
-        subsystems["sarimax_model"] = "degraded"
-
-    # ── Last upload timestamp from SQLite ─────────────────────────────────────
     last_upload_at: str | None = None
-    try:
-        conn2 = _get_db_conn()
-        row = conn2.execute(
-            "SELECT MAX(created_at) FROM monthly_bill_records"
-        ).fetchone()
-        conn2.close()
-        if row and row[0]:
-            last_upload_at = row[0]
-    except Exception:
-        pass
 
-    # ── Vector store / ChromaDB ───────────────────────────────────────────────
-    try:
-        vs = VectorStore()
-        vs.collection_size()
-        subsystems["vector_store"] = "operational"
-    except Exception as exc:
-        logger.warning("Health: vector_store degraded — %s", exc)
-        subsystems["vector_store"] = "degraded"
+    # ── Define individual probes ──────────────────────────────────────────────
 
-    # ── LLM service / Ollama ─────────────────────────────────────────────────
-    try:
-        with httpx.Client(timeout=5.0) as client:
-            resp = client.get(OLLAMA_HEALTH_URL)
-            resp.raise_for_status()
-        subsystems["llm_service"] = "operational"
-    except Exception as exc:
-        logger.warning("Health: llm_service degraded — %s", exc)
-        subsystems["llm_service"] = "degraded"
+    def _check_data_pipeline() -> tuple[Literal["operational", "degraded"], str | None]:
+        """Check SQLite + return last upload timestamp."""
+        upload_ts: str | None = None
+        try:
+            conn = _get_db_conn()
+            conn.execute("SELECT 1 FROM monthly_bill_records LIMIT 1")
+            row = conn.execute(
+                "SELECT MAX(created_at) FROM monthly_bill_records"
+            ).fetchone()
+            if row and row[0]:
+                upload_ts = row[0]
+            conn.close()
+            return "operational", upload_ts
+        except Exception as exc:
+            logger.warning("Health: data_pipeline degraded — %s", exc)
+            return "degraded", None
+
+    def _check_sarimax() -> tuple[Literal["operational", "degraded"], str | None]:
+        """Check model artefact can be loaded."""
+        try:
+            model = SARIMAXModel()
+            model.load()
+            artefact = model._artefact  # type: ignore[attr-defined]
+            trained_at = artefact.get("trained_at") if artefact else None
+            return "operational", trained_at
+        except FileNotFoundError:
+            return "degraded", None
+        except Exception as exc:
+            logger.warning("Health: sarimax_model degraded — %s", exc)
+            return "degraded", None
+
+    def _check_vector_store() -> Literal["operational", "degraded"]:
+        """Check ChromaDB collection is accessible."""
+        try:
+            vs = VectorStore()
+            vs.collection_size()
+            return "operational"
+        except Exception as exc:
+            logger.warning("Health: vector_store degraded — %s", exc)
+            return "degraded"
+
+    def _check_ollama() -> Literal["operational", "degraded"]:
+        """Check Ollama HTTP server is reachable."""
+        try:
+            with httpx.Client(timeout=3.0) as client:
+                resp = client.get(OLLAMA_HEALTH_URL)
+                resp.raise_for_status()
+            return "operational"
+        except Exception as exc:
+            logger.warning("Health: llm_service degraded — %s", exc)
+            return "degraded"
+
+    # ── Run all probes concurrently ───────────────────────────────────────────
+    (
+        (dp_status, upload_ts),
+        (model_status, trained_at),
+        vs_status,
+        ollama_status,
+    ) = await asyncio.gather(
+        asyncio.to_thread(_check_data_pipeline),
+        asyncio.to_thread(_check_sarimax),
+        asyncio.to_thread(_check_vector_store),
+        asyncio.to_thread(_check_ollama),
+    )
+
+    subsystems["data_pipeline"] = dp_status
+    subsystems["sarimax_model"] = model_status
+    subsystems["vector_store"] = vs_status
+    subsystems["llm_service"] = ollama_status
+    model_trained_at = trained_at
+    last_upload_at = upload_ts
 
     all_ok = all(v == "operational" for v in subsystems.values())
     overall_status: Literal["ok", "degraded"] = "ok" if all_ok else "degraded"

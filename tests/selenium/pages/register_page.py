@@ -40,8 +40,10 @@ class RegisterPage(BasePage):
             password: The password to use (must be ≥8 characters).
             confirm: The confirm password value (should match password).
         """
+        import time
         self.navigate("/register")
         email_field = self.wait_for_element(self.EMAIL_INPUT)
+        time.sleep(0.5)  # Brief pause for form to fully render
         email_field.clear()
         email_field.send_keys(email)
 

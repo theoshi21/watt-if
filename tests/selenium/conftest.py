@@ -135,6 +135,8 @@ def driver(request) -> Generator[webdriver.Chrome, None, None]:
     chrome_options.add_experimental_option("prefs", {
         "credentials_enable_service": False,
         "profile.password_manager_enabled": False,
+        "profile.password_manager_leak_detection": False,
+        "profile.default_content_setting_values.notifications": 2,
     })
 
     try:
@@ -234,6 +236,7 @@ def _login_via_ui(driver: webdriver.Chrome, base_url: str, email: str, password:
     email_input = wait.until(
         EC.presence_of_element_located((By.ID, "login-email"))
     )
+    time.sleep(1)  # Brief pause for form to fully render
     password_input = driver.find_element(By.ID, "login-password")
     submit_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit'].btn-primary.auth-page__submit")
 
@@ -250,6 +253,7 @@ def _login_via_ui(driver: webdriver.Chrome, base_url: str, email: str, password:
     wait.until(
         lambda d: "/login" not in d.current_url and "/register" not in d.current_url
     )
+    time.sleep(1)  # Allow dashboard to start loading
 
 
 def _register_via_api(api_url: str, email: str, password: str) -> None:

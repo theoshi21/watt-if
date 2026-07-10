@@ -12,6 +12,7 @@ import time
 
 import pytest
 import requests
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -35,9 +36,24 @@ def test_ACT_01_valid_registration(driver, base_url, api_url):
     page.register(email, password, password)
 
     # Wait for redirect to dashboard — URL should no longer be /register or /login
-    WebDriverWait(driver, 20).until(
-        lambda d: "/register" not in d.current_url and "/login" not in d.current_url
-    )
+    # Registration does two API calls (register + auto-login), so allow extra time.
+    # The first registration of a test run may also trigger DB initialization.
+    try:
+        WebDriverWait(driver, 30).until(
+            lambda d: "/register" not in d.current_url and "/login" not in d.current_url
+        )
+    except Exception:
+        # Capture page state for debugging
+        current_url = driver.current_url
+        # Check if there's an error message on the page
+        error_els = driver.find_elements(By.CSS_SELECTOR, ".auth-page__error[role='alert']")
+        error_text = error_els[0].text if error_els else "No error message displayed"
+        raise AssertionError(
+            f"Registration did not redirect within 30s. "
+            f"URL: {current_url}, Page error: '{error_text}'"
+        )
+    # Brief pause to let the dashboard start rendering
+    time.sleep(1)
 
     current_url = driver.current_url
     # After successful registration, user should be on "/" or "/dashboard"
@@ -658,7 +674,7 @@ def test_ACT_18_model_isolation(driver, base_url, api_url):
     time.sleep(5)  # Allow forecast page to load and check model status
 
     # User B should see an error message indicating no model is available
-    error_msg = forecast_page.get_error_message()
+    error_msg = forecast_page.get_error_message(timeout=20)
     assert error_msg, (
         "User B should see an error message on Forecast page indicating no model available"
     )

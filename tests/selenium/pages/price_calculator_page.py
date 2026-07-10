@@ -19,12 +19,13 @@ class PriceCalculatorPage(BasePage):
     KWH_INPUT = (By.CSS_SELECTOR, "input#calc-kwh")
     CUSTOMER_TYPE_SELECT = (By.CSS_SELECTOR, "select#customer-type")
     BRACKET_SELECT = (By.CSS_SELECTOR, "select#bracket-select")
-    REFRESH_BUTTON = (By.CSS_SELECTOR, "button.btn-secondary")
+    REFRESH_BUTTON = (By.XPATH, '//button[contains(text(),"Refresh Rate") or contains(text(),"Refreshing")]')
     BREAKDOWN_SECTION = (By.CSS_SELECTOR, 'section[aria-labelledby="breakdown-heading"]')
-    TOTAL_CARD = (By.CSS_SELECTOR, 'div[style*="--color-accent-primary"]')
+    TOTAL_CARD = (By.XPATH, '//span[contains(text(),"Estimated Bill")]/parent::div')
     RATE_STATUS = (By.CSS_SELECTOR, 'p[role="status"]')
     RATE_ERROR = (By.CSS_SELECTOR, 'div.card[role="alert"]')
     RATE_INFO = (By.XPATH, '//p[contains(text(),"Meralco Summary Schedule of Rates")]')
+    INPUT_SECTION = (By.CSS_SELECTOR, 'section[aria-labelledby="input-heading"]')
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         """Initialize PriceCalculatorPage.
@@ -89,14 +90,31 @@ class PriceCalculatorPage(BasePage):
         return info_el.text
 
     def get_selected_bracket(self) -> str:
-        """Return the currently selected bracket option text.
+        """Return the currently active bracket text.
+
+        If bracket is set to "auto", reads the auto-detected bracket from
+        the label hint "(auto: XXX)". Otherwise returns the selected option text.
 
         Returns:
-            The visible text of the selected option in the bracket dropdown.
+            The bracket label text (e.g., "301 TO 400 KWH").
         """
         select_el = self.wait_for_element(self.BRACKET_SELECT)
         select = Select(select_el)
-        return select.first_selected_option.text
+        selected_text = select.first_selected_option.text
+
+        # If auto is selected, look for the "(auto: ...)" hint in the label
+        if "auto" in selected_text.lower():
+            hints = self.driver.find_elements(
+                By.XPATH, '//label[@for="bracket-select"]//span'
+            )
+            for hint in hints:
+                text = hint.text
+                if "auto:" in text.lower():
+                    # Extract the bracket name from "(auto: 301 TO 400 KWH)"
+                    return text.replace("(auto:", "").replace(")", "").strip()
+            return selected_text
+
+        return selected_text
 
     def select_bracket(self, bracket_key: str) -> None:
         """Select a specific bracket from the bracket dropdown by value.
@@ -129,22 +147,24 @@ class PriceCalculatorPage(BasePage):
         btn.click()
 
     def get_total_bill(self) -> str:
-        """Return the total bill amount text from the blue accent card.
-
-        The total is displayed as a large peso-formatted value (e.g., "₱2,345.67")
-        inside the card with the accent-primary background.
+        """Return the total bill amount text from the Estimated Bill card.
 
         Returns:
-            The total bill amount text string.
+            The total bill amount text string (e.g., "₱2,345.67").
         """
-        # The total card has a background using --color-accent-primary
-        # The total amount is the second span with font-mono 2rem text
+        # The total card has "Estimated Bill" label and a large peso value
         card = self.wait_for_element(self.TOTAL_CARD)
-        # Get the large monetary value span (font-size 2rem, font-mono)
-        total_span = card.find_element(
-            By.CSS_SELECTOR, 'span[style*="2rem"]'
-        )
-        return total_span.text
+        # The large value is the second span (font-size 2rem, font-mono)
+        spans = card.find_elements(By.CSS_SELECTOR, "span")
+        # Find the span that contains ₱ (the actual value)
+        for span in spans:
+            text = span.text.strip()
+            if "₱" in text and len(text) > 1:
+                return text
+        # Fallback: return the second span's text (index 1 = the big number)
+        if len(spans) >= 2:
+            return spans[1].text
+        return card.text
 
     def is_breakdown_visible(self) -> bool:
         """Check whether the breakdown section has line items displayed.

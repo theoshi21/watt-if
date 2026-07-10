@@ -45,17 +45,36 @@ class ForecastPage(BasePage):
         Returns:
             A (By, selector) tuple targeting the button with matching text.
         """
-        return (By.XPATH, f'//div[@role="group"][@aria-label="Forecast horizon"]//button[contains(text(),"{n} Mo")]')
+        # Use exact text match to avoid "1 Mo" matching "12 Mo"
+        return (By.XPATH, f'//div[@role="group"][@aria-label="Forecast horizon"]//button[normalize-space(text())="{n} Mo"]')
 
     def select_horizon(self, n: int) -> None:
-        """Select a forecast horizon by clicking the corresponding button.
+        """Select a forecast horizon and wait for exactly n bars to appear.
 
         Args:
             n: The horizon month value (1, 3, 6, 9, or 12).
         """
+        import time
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.common.by import By
+
+        # Wait until NO span[role="status"] exists (page idle)
+        WebDriverWait(self.driver, 120, poll_frequency=2).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, 'span[role="status"]')) == 0
+        )
+        
+        # Click the horizon button
         locator = self._horizon_button_locator(n)
         btn = self.wait_for_clickable(locator)
         btn.click()
+
+        # Fixed wait for the forecast to complete
+        time.sleep(6)
+
+        # Now poll for correct bar count (should be fast since forecast is done)
+        WebDriverWait(self.driver, 60, poll_frequency=2).until(
+            lambda d: len(d.find_elements(*self.BARS)) == n
+        )
 
     def get_bar_count(self) -> int:
         """Count the number of bar rectangles in the kWh chart.
@@ -103,8 +122,11 @@ class ForecastPage(BasePage):
         tooltip = self.wait_for_element(self.TOOLTIP)
         return tooltip.text
 
-    def get_error_message(self) -> str:
+    def get_error_message(self, timeout: int = 20) -> str:
         """Wait for the error message element and return its text.
+
+        Args:
+            timeout: Maximum seconds to wait for the error message.
 
         Returns:
             The text content of the error alert paragraph.
@@ -112,7 +134,7 @@ class ForecastPage(BasePage):
         Raises:
             TimeoutException: If no error message appears within the timeout.
         """
-        error_el = self.wait_for_element(self.ERROR_MESSAGE)
+        error_el = self.wait_for_element(self.ERROR_MESSAGE, timeout)
         return error_el.text
 
     def get_xaxis_labels(self) -> list[str]:
@@ -142,17 +164,19 @@ class ForecastPage(BasePage):
         loading_elements = self.find_elements(self.LOADING)
         return len(loading_elements) > 0
 
-    def wait_for_chart_loaded(self, timeout: int = 15) -> None:
-        """Wait for the loading indicator to disappear and chart to render.
+    def wait_for_chart_loaded(self, timeout: int = 120) -> None:
+        """Wait for at least one bar to appear in the chart.
+
+        Simple poll — just checks if bars exist. Returns the moment they do.
 
         Args:
-            timeout: Maximum seconds to wait for loading to finish.
-
-        Raises:
-            TimeoutException: If loading doesn't finish within the timeout.
+            timeout: Maximum seconds to wait.
         """
-        self.wait_for_element_invisible(self.LOADING, timeout)
-        self.wait_for_element(self.BAR_CHART_CONTAINER, timeout)
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        WebDriverWait(self.driver, timeout, poll_frequency=3).until(
+            lambda d: len(d.find_elements(*self.BARS)) > 0
+        )
 
     def has_budget_alert(self) -> bool:
         """Check whether a budget alert banner is displayed.

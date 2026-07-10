@@ -102,7 +102,7 @@ class TestModelTraining:
         """
         # Add 5 entries (below the 14-entry minimum)
         for i in range(5):
-            month = f"2030-{(i + 1):02d}"
+            month = f"2027-{(i + 1):02d}"
             self.page.add_entry(month, 200 + i * 10)
             time.sleep(1)  # Allow each entry to process
 
@@ -163,7 +163,7 @@ class TestModelTraining:
         """
         # Add a few entries first so we have data to clear
         for i in range(3):
-            month = f"2031-{(i + 1):02d}"
+            month = f"2028-{(i + 1):02d}"
             self.page.add_entry(month, 300 + i * 50)
             time.sleep(1)
 
@@ -188,7 +188,7 @@ class TestModelTraining:
         # Navigate to Forecast page and verify "no model" error
         forecast_page = ForecastPage(self.driver, self.base_url)
         forecast_page.navigate("/forecast")
-        time.sleep(2)
+        time.sleep(3)  # Allow forecast page API call to complete
 
-        error_msg = forecast_page.get_error_message()
+        error_msg = forecast_page.get_error_message(timeout=20)
         assert error_msg, "Expected an error message on Forecast page after clearing data"

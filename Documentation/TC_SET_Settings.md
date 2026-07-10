@@ -8,7 +8,7 @@
 
 ---
 
-**Pre-condition:** The backend is running on port 8000, the frontend is open in a browser, and the user is logged in. The Settings page is accessible via the bell icon in the top bar or by navigating to `/account`.
+**Pre-condition:** The backend is running on port 8000, the frontend is open in a browser, and the user is logged in. The Settings page is accessible via the user account icon in the top bar or by navigating to `/account`.
 **Dependencies:** None (settings are independent of trained model state).
 **Test Priority:** High
 
@@ -16,21 +16,21 @@
 
 ## Navigation & Access
 
-### SET-01: Settings page accessible via bell icon
-**Summary:** Clicking the bell icon in the top bar navigates to the Settings page.
+### SET-01: Settings page accessible via account icon
+**Summary:** Clicking the user account icon in the top bar navigates to the Settings page.
 **Test Steps:**
 1. Log in to the application.
-2. Click the bell icon in the top-right corner of the top bar.
+2. Click the user account icon (circle) in the top-right corner of the top bar.
 **Test Data:** N/A
 **Expected Result:** The browser navigates to the Settings page (`/account`). All settings sections are visible: Customer Type, Default Forecast Horizon, Rate Override, Chat Preferences, Data & Privacy, Notification Thresholds, Model Retraining, Account, Change Password, and Session.
 **Actual Result:** _(to be filled during testing)_
 **Status:** ⬜ Not Run
-**Notes:**
+**Notes:** The bell/notification icon was removed in the UI redesign. Settings is now accessed exclusively via the user account button.
 
 ---
 
 ### SET-02: Settings page accessible via user icon
-**Summary:** Clicking the user circle icon in the top bar navigates to the Settings page.
+**Summary:** Clicking the user circle icon in the top bar navigates to the Settings page (same entry point as SET-01).
 **Test Steps:**
 1. Log in to the application.
 2. Click the user circle icon in the top-right corner of the top bar.

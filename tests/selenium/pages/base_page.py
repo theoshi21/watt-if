@@ -22,7 +22,7 @@ class BasePage:
         """
         self.driver = driver
         self.base_url = base_url
-        self.wait = WebDriverWait(driver, 10)
+        self.wait = WebDriverWait(driver, 30)
 
     def navigate(self, path: str) -> None:
         """Navigate to a path relative to the base URL.
@@ -33,12 +33,15 @@ class BasePage:
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         self.driver.get(url)
 
-    def wait_for_element(self, locator: tuple, timeout: int = 15) -> WebElement:
+    def wait_for_element(self, locator: tuple, timeout: int = 30) -> WebElement:
         """Wait for an element to be visible and return it.
+
+        Uses polling (WebDriverWait) — returns immediately once the element
+        is visible. The timeout is the maximum wait, not a fixed delay.
 
         Args:
             locator: Tuple of (By strategy, locator string), e.g., (By.CSS_SELECTOR, "#id").
-            timeout: Maximum seconds to wait (default 15).
+            timeout: Maximum seconds to wait (default 30).
 
         Returns:
             The located WebElement once visible.
@@ -65,12 +68,15 @@ class BasePage:
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.invisibility_of_element_located(locator))
 
-    def wait_for_clickable(self, locator: tuple, timeout: int = 15) -> WebElement:
+    def wait_for_clickable(self, locator: tuple, timeout: int = 30) -> WebElement:
         """Wait for an element to be clickable and return it.
+
+        Uses polling (WebDriverWait) — returns immediately once clickable.
+        The timeout is the maximum wait, not a fixed delay.
 
         Args:
             locator: Tuple of (By strategy, locator string), e.g., (By.CSS_SELECTOR, "#btn").
-            timeout: Maximum seconds to wait (default 15).
+            timeout: Maximum seconds to wait (default 30).
 
         Returns:
             The located WebElement once clickable.

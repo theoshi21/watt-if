@@ -36,8 +36,10 @@ class LoginPage(BasePage):
             email: The email address to enter.
             password: The password to enter.
         """
+        import time
         self.navigate("/login")
         email_field = self.wait_for_element(self.EMAIL_INPUT)
+        time.sleep(0.5)  # Brief pause for form to fully render
         email_field.clear()
         email_field.send_keys(email)
 
