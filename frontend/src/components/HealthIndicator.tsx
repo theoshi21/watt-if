@@ -39,40 +39,44 @@ function Dot({ status }: { status: 'operational' | 'degraded' }) {
 export const HealthIndicator: React.FC = () => {
   const [connState, setConnState] = useState<ConnectionState>('connecting')
   const [health, setHealth] = useState<HealthData | null>(null)
-  const firstCheckDone = useRef(false)
+  const retryCount = useRef(0)
 
   useEffect(() => {
     let cancelled = false
+    let intervalId: ReturnType<typeof setInterval> | null = null
 
     const check = async () => {
       try {
         const res = await fetch(`${BASE_URL}/health`, {
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(8000),
         })
         const data: HealthData = await res.json()
         if (!cancelled) {
           setHealth(data)
           setConnState('connected')
-          firstCheckDone.current = true
+          retryCount.current = 0
         }
       } catch {
         if (!cancelled) {
-          firstCheckDone.current = true
-          setConnState('unreachable')
+          retryCount.current += 1
+          // Only mark as unreachable after 2 consecutive failures
+          // This prevents a false "Backend offline" flash on initial load
+          if (retryCount.current >= 2) {
+            setConnState('unreachable')
+          }
         }
       }
     }
 
     void check()
-    // Poll more frequently (10s) when unreachable, normal interval (30s) when connected
-    const interval = setInterval(() => {
-      if (connState === 'unreachable' || connState === 'connecting') {
-        void check()
-      } else {
-        void check()
-      }
-    }, connState === 'unreachable' ? 10_000 : 30_000)
-    return () => { cancelled = true; clearInterval(interval) }
+
+    const pollInterval = connState === 'connected' ? 30_000 : 5_000
+    intervalId = setInterval(check, pollInterval)
+
+    return () => {
+      cancelled = true
+      if (intervalId) clearInterval(intervalId)
+    }
   }, [connState])
 
   /* ── Connecting ─────────────────────────────────────────────────────────── */

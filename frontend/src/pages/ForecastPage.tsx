@@ -34,21 +34,34 @@ export default function ForecastPage() {
       {!loading && !error && warnings.length > 0 && (
         <div
           role="alert"
+          className="card"
           style={{
-            padding: '0.75rem 1rem',
-            background: 'var(--color-rating-fair-bg)',
-            border: '1px solid var(--color-rating-fair-border)',
-            borderRadius: '0.5rem',
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.82rem',
-            color: 'var(--color-rating-fair-text)',
+            borderLeft: '4px solid var(--color-red)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '0.3rem',
+            alignItems: 'flex-start',
+            gap: '0.75rem',
           }}
         >
-          <strong style={{ fontSize: '0.85rem' }}>⚠️ Budget Alerts</strong>
-          {warnings.map((w, i) => <span key={i}>• {w}</span>)}
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--color-red)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            style={{ flexShrink: 0, marginTop: '0.1rem' }}
+          >
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontFamily: 'var(--font-sans)', fontSize: '0.82rem' }}>
+            <strong style={{ fontSize: '0.85rem', color: 'var(--color-red)' }}>Budget Alerts</strong>
+            {warnings.map((w, i) => <p key={i} style={{ margin: 0, color: 'var(--color-text-primary)' }}>• {w}</p>)}
+          </div>
         </div>
       )}
       {!loading && !error && months.length > 0 && <ForecastChart months={months} />}
