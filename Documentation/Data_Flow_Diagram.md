@@ -226,7 +226,112 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 6. Level 2 — Process 5.0: SARIMAX Forecasting
+## 6. Level 2 — Process 3.0: Feature Enrichment
+
+```
+                                                                            +=========+
+                                       +-------------+                      |T2       |
+                                       |     3.1     |<---------------------|monthly_ |
+                                       | Load Raw    | Raw billing records  |bill_    |
+                                       | Records     |                      |records  |
+                                       +------+------+                      +=========+
+                                              |
+                                              | MonthlyRecord list
+                                              v
+                                       +-------------+                      +=========+
+                                       |     3.2     |<---------------------|T5       |
+                                       | Map Exog    | Current Meralco rate |rate_    |
+                                       | Columns     |                      |cache    |
+                                       +------+------+                      +=========+
+                                              |
+                                              | EnrichedRecord list
+                                              v
+                                   +- - - - - - - - -+
+                                   |      4.0        |
+                                   | SARIMAX Training|
+                                   +- - - - - - - - -+
+
+                                       +-------------+                      +=========+
+                                       |     3.3     |<---------------------|T2       |
+                                       | Compute     | Historical records   |monthly_ |
+                                       | Seasonal    | (same-month avgs)    |bill_    |
+                                       | Fallbacks   |                      |records  |
+                                       +------+------+                      +=========+
+                                              |
+                                              | ExogenousRow list
+                                              v
+                                   +- - - - - - - - -+
+                                   |      5.0        |
+                                   | SARIMAX         |
+                                   | Forecasting     |
+                                   +- - - - - - - - -+
+```
+
+---
+
+## 7. Level 2 — Process 4.0: SARIMAX Model Training
+
+```
+                                                                            +=========+
+              +- - - - - - -+          +-------------+                      |T2       |
+              |     2.0     |  Retrain |     4.1     |<---------------------|monthly_ |
+              | Data        |  trigger | Load        | Enriched records     |bill_    |
+              | Ingestion   |--------->| Enriched    |                      |records  |
+              +- - - - - - -+          | Records     |                      +=========+
+                                       +------+------+
+                                              |
+                                              | Full record set
+                                              v
+                                       +-------------+
+                                       |     4.2     |
+                                       | Split Data  |
+                                       | (80/10/10)  |
+                                       +--+------+---+
+                                          |      |
+                          Training set    |      | Validation set
+                          (80%)           |      | (10%)
+                                          v      |
+                                       +-------------+
+                                       |     4.3     |
+                                       | Run         |
+                                       | auto_arima  |
+                                       +------+------+
+                                              |
+                                              | Best order (p,d,q)(P,D,Q,m)
+                                              v
+                                       +-------------+
+                                       |     4.4     |
+                                       | Fit SARIMAX |
+                                       | Model       |
+                                       +------+------+
+                                              |
+                                              | Fitted model
+                                              v
+                                       +-------------+
+                                       |     4.5     |<--- Validation set
+                                       | Evaluate    |
+                                       | (MAPE)      |
+                                       +------+------+
+                                              |
+                                              | Model + MAPE score
+                                              v
+                                       +-------------+  Store model   +=========+
+                                       |     4.6     |--------------->|T4       |
+                                       | Persist     |                |sarimax_ |
+                                       | Artefact    |-- Store log -->|model.   |
+                                       +-------------+                |joblib   |
+                                                      |               +=========+
+                                                      v
+                                                +=========+
+                                                |T10      |
+                                                |training_|
+                                                |log      |
+                                                +=========+
+```
+
+---
+
+## 8. Level 2 — Process 5.0: SARIMAX Forecasting
 
 ```
               +--------+                                              +=========+
@@ -278,7 +383,7 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 7. Level 2 — Process 6.0: RAG Chat
+## 9. Level 2 — Process 6.0: RAG Chat
 
 ```
               +--------+                                             +----------+
@@ -325,7 +430,7 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 8. Level 2 — Process 7.0: Meralco Rate Scraper
+## 10. Level 2 — Process 7.0: Meralco Rate Scraper
 
 ```
               +--------+                                             +----------+
@@ -370,7 +475,7 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 9. Data Dictionary
+## 11. Data Dictionary
 
 | Data | Description |
 |------|-------------|
@@ -387,7 +492,7 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 10. Database Tables Referenced
+## 12. Database Tables Referenced
 
 | ID | Table | Key Fields |
 |----|-------|-----------|
@@ -404,7 +509,7 @@ DATA FLOWS BETWEEN MODULES AND DATABASE:
 
 ---
 
-## 11. Document Revision History
+## 13. Document Revision History
 
 | Version | Date | Changes |
 |---------|------|---------|
