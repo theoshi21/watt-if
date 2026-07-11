@@ -1,6 +1,6 @@
 # Data Flow Diagram (DFD) — WATT-IF
 
-**Document Version:** 1.0  
+**Document Version:** 2.0  
 **Date:** July 2026  
 **Prepared by:** Development Team
 
@@ -8,399 +8,452 @@
 
 ## 1. Introduction
 
-This document presents the Data Flow Diagrams for the WATT-IF system, illustrating how data moves between external entities, processes, and data stores at multiple levels of abstraction.
+This document presents the Data Flow Diagrams for WATT-IF at three levels: Context (Level 0), System (Level 1), and Detailed (Level 2).
 
-### DFD Notation
+### Notation
 
 | Symbol | Meaning |
 |--------|---------|
-| **Rectangle** | External Entity (source/sink of data outside the system boundary) |
-| **Circle / Rounded Rectangle** | Process (transforms or routes data) |
-| **Open-ended Rectangle** | Data Store (persistent storage) |
-| **Arrow →** | Data Flow (direction indicates flow of data) |
+| Rectangle | External Entity |
+| Rounded Rectangle | Process |
+| Open-ended Rectangle | Data Store |
+| Arrow | Data Flow (labeled) |
 
 ---
 
 ## 2. Context Diagram (Level 0)
 
-The Level 0 DFD shows the entire WATT-IF system as a single process and its interactions with external entities.
-
 ### External Entities
 
-| Entity | Description |
-|--------|-------------|
-| **User** | A registered household electricity consumer who interacts with the system via a web/PWA interface |
-| **Meralco S3** | Meralco's AWS S3 bucket hosting PDF rate schedule documents |
-| **Open-Meteo API** | Weather API providing temperature, humidity, and rainfall data |
-| **NOAA ONI** | National Oceanic and Atmospheric Administration providing El Niño/ENSO phase data |
-| **Ollama LLM** | Local language model service (qwen3:1.7b) for generating natural-language answers |
+| Entity | Role |
+|--------|------|
+| User | Household electricity consumer (web/PWA) |
+| Meralco S3 Bucket | Hosts PDF rate schedule documents |
+| Ollama LLM | Local language model (qwen3:1.7b) for chat answers |
 
-### Level 0 Diagram
+### Diagram
 
 ```
-                                ┌─────────────┐
-                                │ Meralco S3  │
-                                └──────┬──────┘
-                                       │ Rate PDF
-                                       ▼
-┌──────┐   Credentials/Data    ┌──────────────────┐   Weather Query    ┌──────────────┐
-│      │ ──────────────────► │                  │ ─────────────────► │ Open-Meteo   │
-│      │                      │                  │ ◄───────────────── │ API          │
-│      │   Forecasts/          │                  │   Weather Data     └──────────────┘
-│ User │   Answers/            │    WATT-IF       │
-│      │   Reports             │    System        │   ENSO Query       ┌──────────────┐
-│      │ ◄──────────────────  │                  │ ─────────────────► │ NOAA ONI     │
-│      │                      │                  │ ◄───────────────── │              │
-└──────┘                      │                  │   ENSO Phase       └──────────────┘
-                                │                  │
-                                │                  │   Question/Context ┌──────────────┐
-                                │                  │ ─────────────────► │ Ollama LLM   │
-                                │                  │ ◄───────────────── │              │
-                                └──────────────────┘   Answer Tokens   └──────────────┘
+                    +---------------------+
+                    |  Meralco S3 Bucket  |
+                    +----------+----------+
+                               |
+                               | Rate schedule PDF
+                               v
++--------+                +---------+                +----------------+
+|        |  Credentials,  |         |  Prompt +      |                |
+|        |  CSV, entries, |         |  context       |                |
+|        | -------------> | WATT-IF | -------------> |   Ollama LLM   |
+|  User  |                | System  |                |  (qwen3:1.7b)  |
+|        | <------------- |         | <------------- |                |
+|        |  JWT, forecasts|         |  Streamed      |                |
++--------+  answers, rates+---------+  tokens        +----------------+
 ```
 
-### Level 0 Data Flows
+### Data Flows
 
-| # | From | To | Data |
-|---|------|----|------|
-| 1 | User | WATT-IF System | Registration credentials, login credentials, CSV files, manual data entries, forecast requests, chat questions, settings |
-| 2 | WATT-IF System | User | JWT token, forecast results (kWh, price, CI), chat answers (streamed), data entries, health status, Meralco rates |
-| 3 | Meralco S3 | WATT-IF System | PDF rate schedule document |
-| 4 | Open-Meteo API | WATT-IF System | Temperature, humidity, rainfall data per month |
-| 5 | NOAA ONI | WATT-IF System | El Niño/La Niña phase indicator |
-| 6 | WATT-IF System | Ollama LLM | System prompt + forecast context + user question |
-| 7 | Ollama LLM | WATT-IF System | Streamed answer tokens |
+| # | From → To | Data |
+|---|-----------|------|
+| 1 | User → WATT-IF | Credentials, CSV files, manual entries, forecast requests, chat questions, settings |
+| 2 | WATT-IF → User | JWT token, forecasts (kWh, price, 95% CI), chat answers, rate info, health status |
+| 3 | Meralco S3 → WATT-IF | Rate schedule PDF |
+| 4 | WATT-IF → Ollama LLM | Prompt (system + context + question) |
+| 5 | Ollama LLM → WATT-IF | Streamed answer tokens |
 
 ---
 
 ## 3. Level 1 DFD
 
-The Level 1 DFD decomposes the WATT-IF system into its major processes.
-
 ### Processes
 
-| # | Process | Description |
-|---|---------|-------------|
-| 1.0 | Authentication | Manages user registration, login (JWT issuance), and password changes |
-| 2.0 | Data Ingestion | Handles CSV upload, manual entry, and data cleaning/validation |
-| 3.0 | Feature Enrichment | Resolves exogenous variables (weather, rate, ENSO) for each billing record |
-| 4.0 | Model Training | Trains the SARIMAX forecasting model on enriched historical data |
-| 5.0 | Forecasting | Generates kWh/price forecasts with 95% confidence intervals |
-| 6.0 | RAG Chat | Answers natural-language questions using retrieved forecast context + LLM |
-| 7.0 | Rate Scraping | Downloads and parses Meralco rate schedules from PDF |
-| 8.0 | Health Monitoring | Probes all subsystems and reports operational status |
+| # | Process |
+|---|---------|
+| 1.0 | User Authentication |
+| 2.0 | Data Ingestion & Cleaning |
+| 3.0 | Feature Enrichment |
+| 4.0 | SARIMAX Model Training |
+| 5.0 | SARIMAX Forecasting |
+| 6.0 | RAG Chat |
+| 7.0 | Meralco Rate Scraper |
+| 8.0 | Health Monitoring |
 
 ### Data Stores
 
-| ID | Store | Technology | Contents |
-|----|-------|------------|----------|
-| D1 | User Database | SQLite | users, user_settings |
-| D2 | Billing Records | SQLite | monthly_bill_records, data_entry_log |
-| D3 | Chat History | SQLite | chat_history |
-| D4 | Model Artefacts | Filesystem (.joblib) | Per-user SARIMAX models (data/models/{user_id}/) |
-| D5 | Vector Store | ChromaDB | Forecast document embeddings (per-user collections) |
-| D6 | Rate Cache | In-memory | Meralco rate result (24h TTL) |
-| D7 | Saved Forecasts | SQLite | saved_forecasts |
+| ID | Store |
+|----|-------|
+| D1 | User Database |
+| D2 | Billing Records |
+| D3 | Data Entry Log |
+| D4 | Chat History |
+| D5 | Model Artefacts |
+| D6 | Forecast Vector Store |
+| D7 | EDA Summary Store |
+| D8 | Rate Cache |
+| D9 | Saved Forecasts |
+| D10 | User Settings |
 
-### Level 1 Diagram
+### Diagram
 
 ```
-┌──────┐
-│ User │
-└──┬───┘
-   │
-   │ ① Credentials
-   ▼
-┌─────────────────┐        ┌────────────────┐
-│ 1.0             │ ◄────► │ D1 User DB     │
-│ Authentication  │        └────────────────┘
-└────────┬────────┘
-         │ ② JWT Token
-         ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │                   Authenticated Requests                     │
-   └─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-┌─────────────┐  ┌───────────┐  ┌───────────┐  ┌───────────────┐
-│ 2.0         │  │ 5.0       │  │ 6.0       │  │ 7.0           │
-│ Data        │  │ Forecast  │  │ RAG Chat  │  │ Rate Scraping │
-│ Ingestion   │  │           │  │           │  │               │
-└──────┬──────┘  └─────┬─────┘  └─────┬─────┘  └───────┬───────┘
-       │                │              │                │
-       ▼                │              │                ▼
-┌────────────────┐      │              │         ┌──────────────┐
-│ D2 Billing     │      │              │         │ Meralco S3   │
-│ Records        │      │              │         └──────────────┘
-└───────┬────────┘      │              │                │
-        │               │              │                ▼
-        ▼               │              │         ┌────────────────┐
-┌─────────────┐         │              │         │ D6 Rate Cache  │
-│ 3.0 Feature │         │              │         └────────────────┘
-│ Enrichment  │◄────────┼──────────────┼─────────────────┘
-└──────┬──────┘         │              │
-       │                │              │
-       ▼                │              ▼
-┌─────────────┐         │       ┌────────────────┐
-│ 4.0 Model   │         │       │ D5 Vector      │
-│ Training    │         │       │ Store          │
-└──────┬──────┘         │       └───────┬────────┘
-       │                │               │
-       ▼                ▼               ▼
-┌────────────────┐  ┌────────────────┐  ┌──────────────┐
-│ D4 Model       │  │ D7 Saved       │  │ Ollama LLM   │
-│ Artefacts      │  │ Forecasts      │  └──────────────┘
-└────────────────┘  └────────────────┘
++--------+                                              +---------------------+
+|  User  |                                              |  Meralco S3 Bucket  |
++---+----+                                              +----------+----------+
+    |                                                              |
+    | Credentials                                                  | Rate PDF
+    v                                                              v
++-------------------+       +------+                  +---------------------+
+| 1.0 User          | <---> | D1   |                  | 7.0 Meralco Rate    |
+| Authentication    |       +------+                  | Scraper             |
++--------+----------+                                 +---------+-----------+
+         |                                                      |
+         | JWT                                                  | Parsed rate
+         v                                                      v
++--------+----------+                                      +--------+
+| 2.0 Data          | ---> +------+ ---> +------+          |  D8    |
+| Ingestion &       |      | D2   |      | D3   |          +---+----+
+| Cleaning          |      +--+---+      +------+              |
++---------+---------+         |                                |
+          |                   | Raw records         Rate -------+
+          | Retrain trigger   v                       |
+          |            +-------------------+          |
+          +----------> | 3.0 Feature       | <--------+
+                       | Enrichment        |
+                       +---------+---------+
+                                 |
+                    Enriched     |    Future exog
+                    records      |    values
+                       +---------+---------+
+                       v                   v
+              +-------------------+  +-------------------+
+              | 4.0 SARIMAX Model |  | 5.0 SARIMAX       |
+              | Training          |  | Forecasting       |
+              +---------+---------+  +---------+---------+
+                        |                      |     |
+                        v                      |     v
+                   +--------+                  |  +------+  +------+
+                   |  D5    | -----------------+  | D6   |  | D9   |
+                   +--------+   Loaded model      +--+---+  +------+
+                                                     |
+                      +------+ <--------- D7         |
+                      | D10  | ------+               |
+                      +------+       |               v
+                                     |    +-------------------+
+                       Thresholds ---+--> | 6.0 RAG Chat      |
+                                          +---------+---------+
+                                                    |     |
+                                    Prompt          |     | Messages
+                                    v               v     v
+                          +----------------+    +--------+   +--------+
+                          |   Ollama LLM   |    |  User  |   |  D4    |
+                          +----------------+    +--------+   +--------+
 ```
 
-### Level 1 Data Flows
+### Data Flows
 
-| # | From | To | Data |
-|---|------|----|------|
-| 1 | User | 1.0 Authentication | Email, password |
-| 2 | 1.0 Authentication | User | JWT token |
-| 3 | 1.0 Authentication | D1 User DB | New user record (email, bcrypt hash) |
-| 4 | D1 User DB | 1.0 Authentication | Stored credentials for verification |
-| 5 | User | 2.0 Data Ingestion | CSV file or manual entry (year_month, kWh, bill) |
-| 6 | 2.0 Data Ingestion | D2 Billing Records | Cleaned/validated billing rows |
-| 7 | D2 Billing Records | 3.0 Feature Enrichment | Raw billing records (kWh, year_month) |
-| 8 | Open-Meteo API | 3.0 Feature Enrichment | Temperature, humidity, rainfall |
-| 9 | NOAA ONI | 3.0 Feature Enrichment | ENSO phase indicator |
-| 10 | D6 Rate Cache | 3.0 Feature Enrichment | Current Meralco rate per kWh |
-| 11 | 3.0 Feature Enrichment | D2 Billing Records | Enriched records (9 exogenous variables added) |
-| 12 | D2 Billing Records | 4.0 Model Training | Enriched historical records |
-| 13 | 4.0 Model Training | D4 Model Artefacts | Trained SARIMAX model (.joblib) |
-| 14 | D4 Model Artefacts | 5.0 Forecasting | Loaded model for prediction |
-| 15 | 5.0 Forecasting | User | Forecast months (kWh, price, 95% CI, exog values) |
-| 16 | 5.0 Forecasting | D5 Vector Store | Forecast documents for RAG retrieval |
-| 17 | 5.0 Forecasting | D7 Saved Forecasts | Persisted forecast (user request) |
-| 18 | User | 6.0 RAG Chat | Natural-language question |
-| 19 | D5 Vector Store | 6.0 RAG Chat | Top-K relevant forecast documents |
-| 20 | 6.0 RAG Chat | Ollama LLM | Prompt (system + context + question) |
-| 21 | Ollama LLM | 6.0 RAG Chat | Streamed answer tokens |
-| 22 | 6.0 RAG Chat | User | SSE-streamed answer + source metadata |
-| 23 | 6.0 RAG Chat | D3 Chat History | Persisted user/assistant messages |
-| 24 | 7.0 Rate Scraping | Meralco S3 | HTTP request for rate PDF |
-| 25 | Meralco S3 | 7.0 Rate Scraping | PDF file (rate schedule) |
-| 26 | 7.0 Rate Scraping | D6 Rate Cache | Parsed rate brackets (cached 24h) |
-| 27 | 7.0 Rate Scraping | User | Rate breakdown by customer type |
+| # | From → To | Data |
+|---|-----------|------|
+| 1 | User → 1.0 | Email, password |
+| 2 | 1.0 → User | JWT token |
+| 3 | 1.0 → D1 | New user record |
+| 4 | D1 → 1.0 | Stored credentials |
+| 5 | User → 2.0 | CSV file / manual entry |
+| 6 | 2.0 → D2 | Cleaned billing rows |
+| 7 | 2.0 → D3 | Entry audit record |
+| 8 | 2.0 → User | Confirmation |
+| 9 | D2 → 3.0 | Raw billing records |
+| 10 | D8 → 3.0 | Meralco rate |
+| 11 | 3.0 → 4.0 | Enriched records |
+| 12 | 4.0 → D5 | Trained model (.joblib) |
+| 13 | 2.0 → 4.0 | Auto-retrain trigger |
+| 14 | D5 → 5.0 | Loaded model |
+| 15 | D2 → 5.0 | Historical records |
+| 16 | 3.0 → 5.0 | Future exogenous values |
+| 17 | D8 → 5.0 | Meralco rate (for price) |
+| 18 | D10 → 5.0 | Threshold settings |
+| 19 | 5.0 → User | Forecast results |
+| 20 | 5.0 → D6 | Forecast documents |
+| 21 | 5.0 → D9 | Saved forecast |
+| 22 | User → 6.0 | Chat question |
+| 23 | D6 → 6.0 | Top-12 forecast docs |
+| 24 | D7 → 6.0 | Top-3 EDA summaries |
+| 25 | 6.0 → Ollama LLM | Prompt payload |
+| 26 | Ollama LLM → 6.0 | Token stream |
+| 27 | 6.0 → User | Streamed chat answer |
+| 28 | 6.0 → D4 | Chat messages |
+| 29 | 7.0 → Meralco S3 | HTTP request |
+| 30 | Meralco S3 → 7.0 | Rate PDF |
+| 31 | 7.0 → D8 | Parsed rate result |
+| 32 | 7.0 → User | Rate breakdown |
+| 33 | User → 8.0 | Health request |
+| 34 | 8.0 → User | Health status |
+
+### Data Store Inputs & Outputs
+
+| Store | Written By | Read By |
+|-------|-----------|---------|
+| D1 User Database | 1.0 Authentication | 1.0 Authentication |
+| D2 Billing Records | 2.0 Data Ingestion | 3.0 Enrichment, 4.0 Training, 5.0 Forecasting |
+| D3 Data Entry Log | 2.0 Data Ingestion | User (via API) |
+| D4 Chat History | 6.0 RAG Chat | 6.0 RAG Chat, User (via API) |
+| D5 Model Artefacts | 4.0 Training | 5.0 Forecasting, 8.0 Health |
+| D6 Forecast Vector Store | 5.0 Forecasting | 6.0 RAG Chat, 8.0 Health |
+| D7 EDA Summary Store | EDA Ingestion (offline) | 6.0 RAG Chat |
+| D8 Rate Cache | 7.0 Rate Scraper | 3.0 Enrichment, 5.0 Forecasting, User (via API) |
+| D9 Saved Forecasts | 5.0 Forecasting | User (via API) |
+| D10 User Settings | User (via API) | 5.0 Forecasting |
 
 ---
 
-## 4. Level 2 DFD — Process 2.0: Data Ingestion
+## 4. Level 2 — Process 2.0: Data Ingestion & Cleaning
+
+### Diagram
 
 ```
-┌──────┐                                              ┌────────────────┐
-│ User │                                              │ D2 Billing     │
-└──┬───┘                                              │ Records        │
-   │                                                  └───────┬────────┘
-   │ CSV File                                                 │
-   ├──────────────────┐                                       │
-   │                  ▼                                       │
-   │         ┌────────────────┐                               │
-   │         │ 2.1 Validate   │                               │
-   │         │ & Parse CSV    │                               │
-   │         └───────┬────────┘                               │
-   │                 │ Parsed rows                             │
-   │                 ▼                                        │
-   │         ┌────────────────┐                               │
-   │         │ 2.2 Clean &    │                               │
-   │         │ Impute Data    │                               │
-   │         └───────┬────────┘                               │
-   │                 │ Cleaned rows                            │
-   │                 ▼                                        │
-   │         ┌────────────────┐    Deduplicated rows          │
-   │         │ 2.3 Deduplicate│ ─────────────────────────────►│
-   │         │ & Store        │                               │
-   │         └───────┬────────┘                               │
-   │                 │ Cleaning report                         │
-   │◄────────────────┘                                        │
-   │                                                          │
-   │ Manual Entry (year_month, kWh, bill)                     │
-   ├──────────────────┐                                       │
-   │                  ▼                                       │
-   │         ┌────────────────┐    Entry row                  │
-   │         │ 2.4 Validate   │ ─────────────────────────────►│
-   │         │ Manual Entry   │                               │
-   │         └───────┬────────┘                               │
-   │                 │                                        │
-   │                 ▼                                        │
-   │         ┌────────────────┐    Trigger                    │
-   │         │ 2.5 Check Auto │ ──────────────► [4.0 Training]│
-   │         │ Retrain        │                               │
-   │         └────────────────┘                               │
-   │                                                          │
-   │◄──────── Confirmation + retraining_triggered             │
-   │                                                          │
++--------+                                         +--------+  +--------+
+|  User  |                                         |  D2    |  |  D3    |
++---+----+                                         +----+---+  +----+---+
+    |                                                   ^            ^
+    |                                                   |            |
+    | CSV file                                          |            |
+    v                                                   |            |
++-------------------+                                   |            |
+| 2.1 Validate &    |                                   |            |
+| Parse CSV         |                                   |            |
++---------+---------+                                   |            |
+          |                                             |            |
+          | Parsed rows                                 |            |
+          v                                             |            |
++---------+---------+                                   |            |
+| 2.2 Clean &       |                                   |            |
+| Impute            |                                   |            |
++---------+---------+                                   |            |
+          |                                             |            |
+          | Cleaned rows                                |            |
+          v                                             |            |
++---------+---------+    Deduplicated rows              |            |
+| 2.3 Deduplicate   | ---------------------------------+            |
+| & Store            | ----- Entry log records ----------------------+
++---------+---------+
+          |
+          | Cleaning report
+          v
+      +--------+
+      |  User  |
+      +--------+
+
+    |                                                   ^            ^
+    | Manual entry                                      |            |
+    v                                                   |            |
++---------+---------+    Billing record                 |            |
+| 2.4 Validate      | ---------------------------------+            |
+| Manual Entry      | ----- Entry record ----------------------------+
++---------+---------+
+          |
+          | New record signal
+          v
++---------+---------+           +- - - - - - - - - -+
+| 2.5 Check Auto-   | -------> | 4.0 SARIMAX       |
+| Retrain            |  Trigger | Training          |
++-------------------+           +- - - - - - - - - -+
 ```
 
-### Process 2.0 Sub-processes
+### Sub-processes
 
 | # | Process | Input | Output |
 |---|---------|-------|--------|
-| 2.1 | Validate & Parse CSV | Raw CSV file (≤ 10 MB) | Parsed rows with year_month, kWh, price |
-| 2.2 | Clean & Impute Data | Parsed rows | Cleaned rows (invalid dates removed, gaps imputed) |
-| 2.3 | Deduplicate & Store | Cleaned rows | Deduplicated records → D2; Cleaning report → User |
-| 2.4 | Validate Manual Entry | year_month, kWh, bill_amount | Validated entry row → D2 |
-| 2.5 | Check Auto-Retrain | User settings + record count | Trigger model retraining if threshold met |
+| 2.1 | Validate & Parse CSV | Raw CSV file | Parsed rows |
+| 2.2 | Clean & Impute | Parsed rows | Cleaned rows |
+| 2.3 | Deduplicate & Store | Cleaned rows | D2 records, D3 log, report → User |
+| 2.4 | Validate Manual Entry | year_month, kWh, bill | D2 record, D3 log |
+| 2.5 | Check Auto-Retrain | New record count | Trigger → 4.0 Training |
 
 ---
 
-## 5. Level 2 DFD — Process 5.0: Forecasting
+## 5. Level 2 — Process 5.0: SARIMAX Forecasting
+
+### Diagram
 
 ```
-┌──────┐                                                 ┌────────────────┐
-│ User │                                                 │ D4 Model       │
-└──┬───┘                                                 │ Artefacts      │
-   │                                                     └───────┬────────┘
-   │ Forecast Request (horizon: 1/3/6/9/12)                      │
-   │                                                             │
-   ▼                                                             │
-┌────────────────┐   Load model                                  │
-│ 5.1 Load       │◄─────────────────────────────────────────────┘
-│ User Model     │
-└───────┬────────┘
-        │ Loaded SARIMAX model
-        ▼
-┌────────────────┐   Historical records     ┌────────────────┐
-│ 5.2 Estimate   │◄────────────────────────│ D2 Billing     │
-│ Exogenous Vars │                          │ Records        │
-└───────┬────────┘                          └────────────────┘
-        │ Exogenous array (9 vars × horizon months)
-        ▼
-┌────────────────┐
-│ 5.3 Generate   │
-│ Forecast       │
-│ (SARIMAX.predict)
-└───────┬────────┘
-        │ kWh predictions + 95% CI
-        ▼
-┌────────────────┐
-│ 5.4 Derive     │
-│ Price          │
-│ (kWh × rate)  │
-└───────┬────────┘
-        │ ForecastMonth[]
-        ├──────────────────────────────────────┐
-        │                                      ▼
-        │                            ┌────────────────┐
-        │                            │ D5 Vector      │
-        │                            │ Store (ChromaDB)│
-        │                            └────────────────┘
-        ▼
-┌────────────────┐
-│ 5.5 Check      │   User settings     ┌────────────────┐
-│ Thresholds &   │◄───────────────────│ D1 User DB     │
-│ Generate Warns │                     └────────────────┘
-└───────┬────────┘
-        │ Forecast + warnings
-        ▼
-     ┌──────┐
-     │ User │
-     └──────┘
-```
-
----
-
-## 6. Level 2 DFD — Process 6.0: RAG Chat
-
-```
-┌──────┐                                              ┌──────────────┐
-│ User │                                              │ Ollama LLM   │
-└──┬───┘                                              └──────┬───────┘
-   │                                                         │
-   │ Question                                                │
-   ▼                                                         │
-┌────────────────┐                                           │
-│ 6.1 Scope      │── Out of scope ──► "Cannot answer" ──► User
-│ Check          │                                           │
-└───────┬────────┘                                           │
-        │ In-scope question                                  │
-        ▼                                                    │
-┌────────────────┐   Top-12 docs     ┌────────────────┐     │
-│ 6.2 Retrieve   │◄────────────────│ D5 Vector      │     │
-│ Context        │                   │ Store          │     │
-└───────┬────────┘                   └────────────────┘     │
-        │                                                    │
-        │ (If explanation-oriented question)                  │
-        │         EDA docs           ┌────────────────┐     │
-        │◄──────────────────────────│ EDA Store      │     │
-        │                            └────────────────┘     │
-        ▼                                                    │
-┌────────────────┐                                           │
-│ 6.3 Build      │                                           │
-│ Prompt         │                                           │
-│ (System +      │                                           │
-│  Context +     │                                           │
-│  Question)     │                                           │
-└───────┬────────┘                                           │
-        │ Messages array                                     │
-        ▼                                                    │
-┌────────────────┐   Prompt payload                          │
-│ 6.4 Stream     │──────────────────────────────────────────►│
-│ LLM Response   │◄──────────────────────────────────────────│
-└───────┬────────┘   Token stream                            │
-        │                                                    │
-        │ SSE events (token/done/error)                      │
-        ├───────────────────────────────┐                    │
-        ▼                               ▼                    │
-     ┌──────┐                  ┌────────────────┐            │
-     │ User │                  │ D3 Chat        │            │
-     └──────┘                  │ History        │            │
-                               └────────────────┘            │
++--------+                          +--------+
+|  User  |                          |  D5    |
++---+----+                          +----+---+
+    |                                    |
+    | Forecast request (horizon)         | Loaded model
+    v                                    v
++-------------------+          +---------+---------+
+| 5.1 Load User     | <-------| Model Artefacts   |
+| Model              |          +-------------------+
++---------+---------+
+          |
+          | Model object                +--------+
+          v                             |  D2    |
++---------+---------+                   +----+---+
+| 5.2 Compute       | <--------------------+
+| Exogenous Vars     |   Historical records
++---------+---------+
+          |
+          | Exogenous array (9 vars x horizon)
+          v
++---------+---------+
+| 5.3 Generate kWh  |
+| Forecast (SARIMAX) |
++---------+---------+
+          |
+          | kWh predictions + 95% CI    +--------+
+          v                             |  D8    |
++---------+---------+                   +----+---+
+| 5.4 Derive Price   | <-------------------+
+| (kWh x rate)       |   Meralco rate
++---------+---------+
+          |
+          | ForecastMonth[]
+          +------------------+
+          |                  |
+          v                  v
++---------+---------+  +--------+
+| 5.5 Embed & Store |  |  D6    |
+| in Vector Store    |->+--------+
++-------------------+
+          |
+          | ForecastMonth[]             +--------+
+          v                             |  D10   |
++---------+---------+                   +----+---+
+| 5.6 Check         | <--------------------+
+| Thresholds & Warn  |   Threshold settings
++---------+---------+
+          |
+          | Forecast + warnings
+          v
+      +--------+
+      |  User  |
+      +--------+
 ```
 
 ---
 
-## 7. Data Dictionary
+## 6. Level 2 — Process 6.0: RAG Chat
 
-### External Data Flows
+### Diagram
 
-| Data Flow | Description | Format |
-|-----------|-------------|--------|
-| Credentials | Email + password for registration/login | JSON: `{email, password}` |
-| JWT Token | Authentication bearer token | String (HS256-signed, 24h expiry) |
-| CSV File | Monthly electricity bill history | CSV (year_month, kwh, price columns) |
-| Manual Entry | Single billing month data point | JSON: `{year_month, kwh, bill_amount}` |
-| Forecast Request | Desired prediction horizon | JSON: `{horizon: 1|3|6|9|12}` |
-| Forecast Response | Predicted kWh/price per month | JSON array of ForecastMonth objects |
-| Chat Question | Natural-language query about bills | JSON: `{question: string}` |
-| Chat Answer | LLM-generated response | SSE stream: token/done/error events |
-| Rate PDF | Meralco Schedule of Rates | PDF document (parsed via pdfplumber) |
-| Weather Data | Monthly climate statistics | JSON (temperature, humidity, rainfall) |
-| ENSO Phase | El Niño status indicator | Integer: -1 (La Niña) / 0 (Neutral) / 1 (El Niño) |
-
-### Internal Data Stores
-
-| Store | Key Fields | Purpose |
-|-------|-----------|---------|
-| monthly_bill_records | user_id, year_month, kwh, price, 9 exog columns | Primary training/forecast data |
-| data_entry_log | id, user_id, year_month, kwh, bill_amount, source | Audit trail of all data entries |
-| users | id, email, password_hash | Account management |
-| user_settings | user_id, customer_type, horizons, thresholds | Per-user preferences |
-| chat_history | id, user_id, role, text | Conversation persistence |
-| saved_forecasts | user_id, horizon, months (JSON) | Last forecast cache |
-| ChromaDB collections | document text, metadata, embeddings | Semantic search for RAG |
-| SARIMAX .joblib | model object, order, MAPE, training window | Trained forecasting model |
-
-### Exogenous Variables (9 columns)
-
-| Variable | Source | Description |
-|----------|--------|-------------|
-| meralco_rate | Meralco S3 PDF | ₱/kWh residential electricity rate |
-| avg_temperature | Open-Meteo API | Monthly average temperature (°C) |
-| avg_humidity | Open-Meteo API | Monthly average relative humidity (%) |
-| total_rainfall_mm | Open-Meteo API | Total monthly rainfall (mm) |
-| holiday_count | Calendar data | Number of public holidays in the month |
-| weekend_count | Calendar data | Number of Saturday/Sunday days |
-| hot_days_count | Open-Meteo API | Days with temperature > threshold |
-| rainy_days_count | Open-Meteo API | Days with measurable rainfall |
-| is_el_nino | NOAA ONI | Binary indicator (1 = El Niño active) |
+```
++--------+                                    +----------------+
+|  User  |                                    |   Ollama LLM   |
++---+----+                                    +-------+--------+
+    |                                                 ^    |
+    | Question                                        |    | Token stream
+    v                                                 |    v
++-------------------+                                 |    |
+| 6.1 Scope Check   |--- Out of scope --> User        |    |
++---------+---------+                                 |    |
+          |                                           |    |
+          | In-scope question                         |    |
+          v                                           |    |
++---------+---------+     +--------+                  |    |
+| 6.2 Retrieve       | <--| D6     |                  |    |
+| Context            |    +--------+                  |    |
+|                    | <--| D7     |                  |    |
++---------+---------+     +--------+                  |    |
+          |                                           |    |
+          | Retrieved docs                            |    |
+          v                                           |    |
++---------+---------+                                 |    |
+| 6.3 Build Prompt   |                                |    |
++---------+---------+                                 |    |
+          |                                           |    |
+          | Messages array        Prompt              |    |
+          v                       |                   |    |
++---------+---------+-------------+                   |    |
+| 6.4 Stream LLM    | -----------------------------------+    |
+| Response           | <--------------------------------------+
++---------+---------+
+          |              |
+          | SSE answer   | Persisted messages
+          v              v
+      +--------+    +--------+
+      |  User  |    |  D4    |
+      +--------+    +--------+
+```
 
 ---
 
-## 8. Document Revision History
+## 7. Level 2 — Process 7.0: Meralco Rate Scraper
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | July 2026 | Development Team | Initial document creation |
+### Diagram
+
+```
++--------+                              +---------------------+
+|  User  |                              |  Meralco S3 Bucket  |
++---+----+                              +----------+----------+
+    |                                              ^    |
+    | Rate request                      HTTP GET   |    | PDF bytes
+    v                                              |    v
++-------------------+                              |    |
+| 7.1 Check Cache   |--- Cache hit --> User        |    |
+| TTL                |                              |    |
++---------+---------+                              |    |
+          |                                        |    |
+          | Cache miss                             |    |
+          v                                        |    |
++---------+---------+                              |    |
+| 7.2 Download PDF   | ---------------------------+    |
+|                    | <-------------------------------+
++---------+---------+
+          |
+          | PDF bytes
+          v
++---------+---------+
+| 7.3 Parse PDF      |
+| Tables              |
++---------+---------+
+          |
+          | Customer types + rate brackets
+          v
++---------+---------+         +--------+
+| 7.4 Cache Result   | -----> |  D8    |
++---------+---------+         +--------+
+          |
+          | Rate breakdown
+          v
+      +--------+
+      |  User  |
+      +--------+
+
+          (If download fails)
+          |
+          v
++---------+---------+         +--------+
+| 7.5 Fallback       | -----> |  D8    |
+| Rates              |         +--------+
++---------+---------+
+          |
+          | Fallback rate
+          v
+      +--------+
+      |  User  |
+      +--------+
+```
+
+---
+
+## 8. Data Dictionary
+
+| Data | Format | Description |
+|------|--------|-------------|
+| Credentials | `{email, password}` | Registration/login input |
+| JWT Token | HS256 string, 24h expiry | Bearer auth token |
+| CSV File | year_month, kwh, price columns | Bill history upload |
+| Manual Entry | `{year_month, kwh, bill_amount}` | Single data point |
+| Forecast Request | `{horizon: 1/3/6/9/12}` | Prediction horizon |
+| Forecast Response | `{months: [{kwh, price, ci_lower, ci_upper}]}` | Prediction output |
+| Chat Question | `{question: string}` | Natural-language query |
+| Chat Answer | SSE stream (token/done/error) | LLM response |
+| Rate PDF | Binary PDF | Meralco schedule of rates |
+
+---
+
+## 9. Document Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | July 2026 | Initial creation |
+| 2.0 | July 2026 | Simplified structure; added SARIMAX Forecasting; renamed to Meralco Rate Scraper; removed phantom external APIs; added data store I/O table; added Level 2 for Rate Scraper |
