@@ -1,4 +1,4 @@
-# ⚡ WATT-IF
+# WATT-IF
 
 A locally-hosted Progressive Web App for forecasting household electricity consumption and cost in the Philippines.
 
