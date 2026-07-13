@@ -335,10 +335,10 @@ class DataEntryPage(BasePage):
         Looks for a confirm button within the danger zone section
         after the Clear All button has been clicked.
         """
-        # After clicking Clear All, a confirmation panel appears
-        # Look for a button containing "confirm" text or a second danger button
+        # After clicking Clear All, a confirmation panel appears with
+        # "Yes, clear everything" as the confirm button text.
         confirm_btn = self.wait_for_clickable(
-            (By.XPATH, "//section[@aria-labelledby='danger-zone-hd']//button[contains(translate(text(),'CONFIRM','confirm'),'confirm')]")
+            (By.XPATH, "//section[@aria-labelledby='danger-zone-hd']//button[contains(text(),'Yes')]")
         )
         confirm_btn.click()
 

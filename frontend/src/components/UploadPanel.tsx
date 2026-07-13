@@ -30,6 +30,12 @@ export const UploadPanel: React.FC<Props> = ({ onUploadSuccess }) => {
         return
       }
 
+      if (res.rows_received === 0) {
+        setPanelStatus('error')
+        setMessage('No valid rows found — check that year_month values use YYYY-MM format.')
+        return
+      }
+
       setPanelStatus('success')
       setMessage(`✓ ${res.rows_received} row(s) ingested. Click Train Model to update the forecast.`)
       onUploadSuccess?.(filename)

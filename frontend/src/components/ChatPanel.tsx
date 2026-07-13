@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { createChatMessage, getChatHistory, streamQuestion, clearChatHistory } from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 interface Message {
   id: number
@@ -19,13 +20,21 @@ export const ChatPanel: React.FC = () => {
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const nextId = useRef(0)
+  const { user } = useAuth()
 
   const scrollToBottom = useCallback(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
   }, [])
 
-  // Load chat history on mount
+  // Load chat history when user changes (account switch or initial mount)
   useEffect(() => {
+    setMessages([])
+    setHistoryError(null)
+    setHistoryLoading(true)
+    nextId.current = 0
+
+    if (!user) { setHistoryLoading(false); return }
+
     getChatHistory()
       .then((rows) => {
         setMessages(
@@ -38,7 +47,7 @@ export const ChatPanel: React.FC = () => {
         setHistoryError(err instanceof Error ? err.message : 'Could not load chat history.')
       })
       .finally(() => setHistoryLoading(false))
-  }, [])
+  }, [user?.id])
 
   useEffect(() => { scrollToBottom() }, [messages, waiting, historyLoading, scrollToBottom])
 

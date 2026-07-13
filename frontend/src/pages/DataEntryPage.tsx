@@ -179,7 +179,7 @@ function EditRow({ entry, onSave, onCancel }: EditRowProps) {
             {saving ? '…' : 'Save'}
           </button>
           <button onClick={onCancel} style={btnGhost()}>Cancel</button>
-          {err && <span style={errorText}>{err}</span>}
+          {err && <span role="alert" style={errorText}>{err}</span>}
         </div>
       </td>
     </tr>

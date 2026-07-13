@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { getForecast, getTrainingStatus, getSavedForecast, saveForecast, getSettings } from '../api/client'
+import { useAuth } from './AuthContext'
 import type { ForecastMonth, Horizon } from '../api/types'
 
 interface ForecastContextValue {
@@ -22,6 +23,7 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
+  const { user } = useAuth()
 
   const loadForecast = useCallback(async (h: Horizon) => {
     setLoading(true)
@@ -50,13 +52,16 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [])
 
-  // On mount: try to restore the user's saved forecast first, then fall back
-  // to generating a fresh forecast using the user's preferred horizon.
+  // Reset forecast state and reload when the user changes (account switch).
   useEffect(() => {
-    const checkAndLoad = async () => {
-      // Skip if we already have months in state (navigating back to Dashboard)
-      if (months.length > 0) return
+    // Clear previous user's forecast immediately
+    setMonths([])
+    setWarnings([])
+    setError(null)
 
+    if (!user) return
+
+    const checkAndLoad = async () => {
       // Load user's preferred default horizon from settings
       let defaultHorizon: Horizon = 3
       try {
@@ -93,7 +98,7 @@ export const ForecastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     void checkAndLoad()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // intentionally run once on mount only
+  }, [user?.id]) // re-run when user identity changes
 
   const clearMonths = useCallback(() => {
     setMonths([])
