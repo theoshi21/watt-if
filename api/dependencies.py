@@ -21,8 +21,15 @@ logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
+JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production!")
 JWT_ALGORITHM = "HS256"
+
+if len(JWT_SECRET) < 32:
+    logger.warning(
+        "JWT_SECRET is only %d characters. A minimum of 32 is recommended for security.",
+        len(JWT_SECRET),
+    )
+
 
 
 def get_current_user(
