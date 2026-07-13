@@ -8,7 +8,8 @@ pandas==2.2.3
 numpy==1.26.4
 joblib==1.4.2
 pmdarima==2.0.4
-statsmodels==0.14.4
+statsmodels==0.14.6
+scipy>=1.11.0
 scikit-learn==1.6.1
 bcrypt==4.2.1
 PyJWT==2.9.0
