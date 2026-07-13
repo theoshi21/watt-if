@@ -148,11 +148,9 @@ function EditRow({ entry, onSave, onCancel }: EditRowProps) {
   return (
     <tr style={{ background: 'var(--color-input-fill)', outline: '2px solid var(--color-accent-primary)', outlineOffset: '-1px' }}>
       <td style={{ ...td, ...mono }}>{entry.year_month}</td>
-      <td style={td}><input type="number" min={0} max={99999} value={kwh} onChange={e => {
+      <td style={td}><input type="number" min={0} max={1000000} value={kwh} onChange={e => {
         const v = e.target.value
         if (v === '') { setKwh(v); return }
-        const num = parseFloat(v)
-        if (!isNaN(num) && num > 99999) { setKwh('99999'); return }
         setKwh(v)
       }} style={miniInput} /></td>
       <td style={td}><input type="number" min={0} max={9999999} value={bill} onChange={e => {

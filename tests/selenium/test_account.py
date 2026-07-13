@@ -524,13 +524,28 @@ def test_ACT_16_chat_isolation(driver, base_url, api_url):
         lambda d: "/login" not in d.current_url
     )
 
-    # Navigate to Ask page and send a message
+    # Get User A's JWT token for API calls
+    token_a = driver.execute_script("return window.localStorage.getItem('wattif_token')")
+
+    # Persist a chat message for User A via the API (avoids Ollama dependency)
+    requests.post(
+        f"{api_url}/chat-history",
+        json={"role": "user", "text": "What is my electricity forecast?"},
+        headers={"Authorization": f"Bearer {token_a}"},
+        timeout=10,
+    )
+    requests.post(
+        f"{api_url}/chat-history",
+        json={"role": "assistant", "text": "Your forecast shows 350 kWh next month."},
+        headers={"Authorization": f"Bearer {token_a}"},
+        timeout=10,
+    )
+
+    # Navigate to Ask page and verify User A sees their messages
     ask_page = AskPage(driver, base_url)
     ask_page.navigate("/ask")
-    ask_page.send_message("What is my electricity forecast?")
-    ask_page.wait_for_response(timeout=30)
+    time.sleep(2)  # Allow history to load
 
-    # Verify User A can see the message
     messages_a = ask_page.get_messages()
     assert len(messages_a) >= 2, "User A should see their message and a response"
 
