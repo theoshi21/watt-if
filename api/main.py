@@ -23,6 +23,12 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env file from project root (if it exists) so JWT_SECRET and other
+# env vars are available without manually exporting them in the shell.
+load_dotenv(Path(__file__).parent.parent / ".env")
 from typing import Literal
 
 import httpx
