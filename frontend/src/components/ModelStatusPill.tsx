@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getModelInfo } from '../api/client'
 import type { ModelInfoResponse } from '../api/types'
+import { useAuth } from '../context/AuthContext'
 
 /**
  * ModelStatusPill
@@ -14,8 +15,11 @@ import type { ModelInfoResponse } from '../api/types'
 export default function ModelStatusPill() {
   const [modelInfo, setModelInfo] = useState<ModelInfoResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const { token } = useAuth()
 
   useEffect(() => {
+    if (!token) return
+
     const fetchInfo = async () => {
       try {
         const info = await getModelInfo()
@@ -30,7 +34,7 @@ export default function ModelStatusPill() {
     fetchInfo()
     const interval = setInterval(fetchInfo, 60_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [token])
 
   if (!loading && modelInfo?.mape_avg_pct != null) {
     return (
