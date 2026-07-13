@@ -259,9 +259,18 @@ async def warmup_ollama() -> None:
     asyncio.create_task(_ping())
 
 # ── CORS (Req 7.6) ────────────────────────────────────────────────────────────
+# Allow any origin so the frontend works from any device on the network.
+# In production, restrict this to your actual deployment domain(s).
+_cors_origins = os.environ.get("CORS_ORIGINS", "").strip()
+if _cors_origins:
+    _allowed_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+else:
+    _allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[PWA_ORIGIN, PWA_ORIGIN_NETWORK, PWA_ORIGIN_NETWORK_PREVIEW],
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -1206,6 +1215,18 @@ async def create_data_entry(body: DataEntryCreate, current_user: dict = Depends(
     created_at = datetime.now(timezone.utc).isoformat()
     conn = _get_db_conn()
     try:
+        # ── 0. Reject duplicate month for this user ───────────────────────────
+        existing_entry = conn.execute(
+            "SELECT id FROM data_entry_log WHERE year_month = ? AND user_id = ?",
+            (body.year_month, current_user["id"]),
+        ).fetchone()
+        if existing_entry:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An entry for {body.year_month} already exists. "
+                       f"Use the edit button to update it.",
+            )
+
         # ── 1. Determine previous latest month before this entry ──────────────
         previous_latest: str | None = None
         try:

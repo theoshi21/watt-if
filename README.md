@@ -106,6 +106,8 @@ cd C:\Users\<you>\OneDrive\Desktop\WATT-IF
 pip install -r requirements.txt
 ```
 
+This installs all runtime dependencies (FastAPI, pandas, pmdarima, ChromaDB, sentence-transformers, etc.) and test dependencies (pytest, selenium).
+
 > **Tip:** Use a virtual environment:
 > ```bash
 > python -m venv .venv
@@ -119,11 +121,25 @@ pip install -r requirements.txt
 
 Copy `.env.example` to `.env` and set your JWT secret:
 
-```
-JWT_SECRET=your-strong-random-secret-here
+```bash
+copy .env.example .env
 ```
 
-If not set, the app defaults to `dev-secret-change-in-production` (fine for local development).
+Then edit `.env`:
+
+```dotenv
+# Minimum 32 characters. Generate one with:
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+JWT_SECRET=your-strong-random-secret-key-at-least-32-chars
+
+# (Optional) Restrict CORS origins. Leave empty to allow all origins.
+# Useful for development across devices on the same network.
+CORS_ORIGINS=
+```
+
+The `JWT_SECRET` must be at least **32 characters**. If not set, the app defaults to a 32-character dev secret (fine for local development, not for production).
+
+The `CORS_ORIGINS` variable is optional. When left empty (the default), the backend allows requests from any origin — convenient when accessing the app from other devices on your network. For production, set it to a comma-separated list of allowed origins (e.g. `http://localhost:5173,http://192.168.1.50:5173`).
 
 ---
 
@@ -313,7 +329,7 @@ Open **http://localhost:4173**. Click the install icon in the browser address ba
 
 ### On a phone (same Wi-Fi network)
 
-This lets you install WATT-IF on your phone while the backend runs on your PC.
+This lets you install WATT-IF on your phone while the backend runs on your PC. CORS is open by default, so no extra backend configuration is needed.
 
 **Step 1 — Find your PC's local IP**
 
@@ -323,20 +339,22 @@ Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^(
 ```
 You'll get something like `192.168.1.x`.
 
-**Step 2 — Create `frontend/.env.local`**
+**Step 2 — Start the backend on the network**
+
+```bash
+# From project root
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+**Step 3 — (Optional) Set frontend API URL**
+
+The frontend auto-detects the backend URL from its own host. If that doesn't work, create `frontend/.env.local`:
 
 ```
 VITE_API_BASE=http://192.168.1.x:8000
 ```
 
 Replace `192.168.1.x` with your actual IP.
-
-**Step 3 — Start the backend on the network**
-
-```bash
-# From project root
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
 
 **Step 4 — Build and serve the frontend**
 
@@ -531,7 +549,10 @@ The backend now backfills `bill_amount` with the computed price (kWh × resolved
 CSV rows are now mirrored to `data_entry_log` after a successful upload. Re-upload your CSV after restarting the backend.
 
 **Frontend shows blank page or CORS error**  
-Ensure the backend is running on port 8000 before opening the frontend. The backend auto-detects your LAN IP for CORS.
+Ensure the backend is running on port 8000 before opening the frontend. By default, CORS allows all origins. If you've set `CORS_ORIGINS` in `.env`, make sure it includes the origin your frontend is served from (e.g. `http://192.168.1.x:5173`).
+
+**"JWT_SECRET is only 31 characters" warning / token errors**  
+The JWT secret must be at least 32 characters. Update your `.env` file with a longer secret. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 
 **Forecast looks flat or inaccurate**  
 Use at least 24 months of data spanning more than one calendar year. Including exogenous columns (temperature, rainfall, El Niño) significantly improves accuracy.
