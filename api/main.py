@@ -1061,13 +1061,16 @@ def _weekend_count_for_month(year: int, month: int) -> int:
     )
 
 
-def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, user_id: int | None = None) -> float:
-    """Resolve the best available Meralco rate for a given year_month.
+def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, user_id: int | None = None, kwh: float = 300.0) -> float:
+    """Resolve the best available Meralco rate for a given year_month and kWh consumption.
+
+    The kWh value is used to select the correct residential rate bracket,
+    matching exactly how the Price Calculator selects brackets.
 
     Priority:
       0. User's rate_override from settings (if set)
       1. Exact match in monthly_bill_records for that year_month (already persisted)
-      2. Live scraped rate for that specific month's PDF
+      2. Live scraped rate for that specific month's PDF, using the correct bracket for kwh
       3. Most recent rate in monthly_bill_records
       4. Hardcoded default (₱11.80/kWh)
     """
@@ -1118,7 +1121,7 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
                 result = _get_rate()
 
         residential = result.get_type("Residential")
-        rate = residential.get_bracket_for_kwh(300).residential_rate_per_kwh
+        rate = residential.get_bracket_for_kwh(kwh).residential_rate_per_kwh
         if rate > 0:
             logger.info(
                 "Using scraped Meralco rate ₱%.4f/kWh for %s.", rate, year_month
@@ -1182,7 +1185,7 @@ def _resolve_exog_for_month(
     is_el_nino = float(_get_el_nino(year_month))
 
     return {
-        "meralco_rate":      _resolve_meralco_rate_for_month(year_month, conn, user_id=user_id),
+        "meralco_rate":      _resolve_meralco_rate_for_month(year_month, conn, user_id=user_id, kwh=kwh),
         "avg_temperature":   weather.avg_temperature,
         "avg_humidity":      weather.avg_humidity,
         "total_rainfall_mm": weather.total_rainfall_mm,
@@ -1646,7 +1649,7 @@ async def meralco_rate_resolve(
     """
     conn = _get_db_conn()
     try:
-        rate = _resolve_meralco_rate_for_month(year_month, conn, user_id=current_user["id"])
+        rate = _resolve_meralco_rate_for_month(year_month, conn, user_id=current_user["id"], kwh=kwh)
     finally:
         conn.close()
     return JSONResponse(content={"year_month": year_month, "kwh": kwh, "rate": rate})
