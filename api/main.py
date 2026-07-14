@@ -1066,12 +1066,12 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
 
     Priority:
       0. User's rate_override from settings (if set)
-      1. Live scraped rate (if year_month is the current or recent month)
-      2. Exact match in monthly_bill_records for that year_month
+      1. Exact match in monthly_bill_records for that year_month (already persisted)
+      2. Live scraped rate for that specific month's PDF
       3. Most recent rate in monthly_bill_records
       4. Hardcoded default (₱11.80/kWh)
     """
-    from scraper.meralco_rate import get_rate as _get_rate
+    from scraper.meralco_rate import get_rate as _get_rate, _fetch_and_parse
 
     # Check user's rate override from settings
     if user_id is not None:
@@ -1085,26 +1085,7 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
             )
             return float(settings_row["rate_override"])
 
-    now = datetime.now(timezone.utc)
-    current_ym = f"{now.year:04d}-{now.month:02d}"
-
-    # Use live scraper for the current month or future months
-    if year_month >= current_ym:
-        try:
-            result = _get_rate()
-            residential = result.get_type("Residential")
-            # Use the ">400 kWh" bracket residential_rate_per_kwh as the representative rate
-            # (most households fall in higher brackets; adjust if needed)
-            rate = residential.get_bracket_for_kwh(300).residential_rate_per_kwh
-            if rate > 0:
-                logger.info(
-                    "Using live Meralco rate ₱%.4f/kWh for %s.", rate, year_month
-                )
-                return rate
-        except Exception as exc:
-            logger.warning("Live Meralco scrape failed for %s: %s — falling back.", year_month, exc)
-
-    # Exact match in DB for historical months (scoped to user if available)
+    # Exact match in DB (already resolved previously)
     if user_id is not None:
         row = conn.execute(
             "SELECT meralco_rate FROM monthly_bill_records WHERE year_month = ? AND user_id = ?",
@@ -1115,8 +1096,36 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
             "SELECT meralco_rate FROM monthly_bill_records WHERE year_month = ?",
             (year_month,),
         ).fetchone()
-    if row and row[0]:
+    if row and row[0] and float(row[0]) > 0:
         return float(row[0])
+
+    # Try to scrape the rate PDF for the specific month
+    try:
+        entry_year = int(year_month[:4])
+        entry_month = int(year_month[5:7])
+
+        now = datetime.now(timezone.utc)
+        current_ym = f"{now.year:04d}-{now.month:02d}"
+
+        if year_month >= current_ym:
+            # Current/future month — use cached scraper (tries current then previous months)
+            result = _get_rate()
+        else:
+            # Historical month — try fetching that specific month's PDF
+            result = _fetch_and_parse(entry_year, entry_month)
+            if result is None:
+                # Fall back to current cached rate
+                result = _get_rate()
+
+        residential = result.get_type("Residential")
+        rate = residential.get_bracket_for_kwh(300).residential_rate_per_kwh
+        if rate > 0:
+            logger.info(
+                "Using scraped Meralco rate ₱%.4f/kWh for %s.", rate, year_month
+            )
+            return rate
+    except Exception as exc:
+        logger.warning("Meralco scrape failed for %s: %s — falling back.", year_month, exc)
 
     # Most recent rate in DB
     if user_id is not None:
