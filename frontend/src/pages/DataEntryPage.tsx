@@ -3,7 +3,7 @@ import { UploadPanel } from '../components/UploadPanel'
 import { TrainModelPanel } from '../components/TrainModelPanel'
 import {
   getDataEntries, createDataEntry, updateDataEntry,
-  deleteDataEntry, clearAllData, getMeralcoRate,
+  deleteDataEntry, clearAllData,
 } from '../api/client'
 import type { DataEntryRow, DataEntryUpdate } from '../api/types'
 
@@ -287,22 +287,6 @@ export function DataEntryPage() {
   const [submitErr, setSubmitErr] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // live Meralco rate for bill preview
-  const [liveRate, setLiveRate] = useState<number | null>(null)
-  useEffect(() => {
-    getMeralcoRate()
-      .then(r => {
-        const residential = r.customer_types.find(ct => ct.type_key === 'Residential')
-        if (residential) {
-          // Use the >300 kWh bracket as the representative rate
-          const bracket = residential.brackets.find(b => b.bracket_key === 'OVER 400 KWH')
-            ?? residential.brackets[residential.brackets.length - 1]
-          setLiveRate(bracket.residential_rate_per_kwh)
-        }
-      })
-      .catch(() => { /* non-fatal — preview just won't show */ })
-  }, [])
-
   // table state
   const [rows, setRows] = useState<DataEntryRow[]>([])
   const [fetchErr, setFetchErr] = useState<string | null>(null)
@@ -439,22 +423,6 @@ export function DataEntryPage() {
                 style={inputStyle} aria-invalid={!!kwhErr}
                 aria-describedby={kwhErr ? 'kwh-err' : undefined} />
               {kwhErr && <span id="kwh-err" role="alert" style={errorText}>{kwhErr}</span>}
-              {/* Live bill preview */}
-              {(() => {
-                const n = parseFloat(kwh)
-                const rate = rateOverride !== '' ? parseFloat(rateOverride) : liveRate
-                if (!isNaN(n) && n > 0 && rate && rate > 0 && bill === '') {
-                  return (
-                    <span style={{ ...meta, marginTop: '0.3rem', display: 'block' }}>
-                      Est. bill: <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>
-                        ₱{(n * rate).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </strong>
-                      {' '}@ ₱{rate.toFixed(4)}/kWh
-                    </span>
-                  )
-                }
-                return null
-              })()}
             </div>
           </div>
 

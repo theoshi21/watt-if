@@ -119,6 +119,33 @@ def _validate_email(email: str) -> None:
         )
 
 
+def _validate_password_strength(password: str) -> str | None:
+    """Check password complexity requirements.
+
+    Returns None if the password is valid, or a descriptive error message
+    string if any requirement is not met.
+
+    Requirements:
+      - At least 8 characters
+      - At least one uppercase letter (A-Z)
+      - At least one lowercase letter (a-z)
+      - At least one digit (0-9)
+      - At least one special character from: !@#$%^&*()_+-=[]{}|;:,.<>?
+    """
+    if (
+        len(password) >= 8
+        and re.search(r"[A-Z]", password)
+        and re.search(r"[a-z]", password)
+        and re.search(r"\d", password)
+        and re.search(r"[!@#$%^&*()\\_+\-=\[\]{}|;:,.<>?]", password)
+    ):
+        return None
+    return (
+        "Password must be at least 8 characters and include uppercase, "
+        "lowercase, a number, and a special character (!@#$%^&*...)."
+    )
+
+
 def _hash_password(password: str) -> str:
     """Hash a password with bcrypt at cost factor 12."""
     salt = bcrypt.gensalt(rounds=BCRYPT_COST_FACTOR)
@@ -180,6 +207,14 @@ async def register(request: RegisterRequest) -> RegisterResponse:
     """
     # Validate email format (beyond Pydantic max_length)
     _validate_email(request.email)
+
+    # Validate password strength
+    pw_error = _validate_password_strength(request.password)
+    if pw_error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=pw_error,
+        )
 
     # Normalize email to lowercase for consistent duplicate checking
     email = request.email.strip().lower()
@@ -274,6 +309,14 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="New password and confirmation do not match.",
+        )
+
+    # Validate new password strength
+    pw_error = _validate_password_strength(request.new_password)
+    if pw_error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=pw_error,
         )
 
     # Fetch current hash

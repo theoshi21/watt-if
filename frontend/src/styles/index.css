@@ -406,7 +406,7 @@ textarea:focus {
 }
 
 .auth-page__input {
-  padding: 0.6rem 0.85rem;
+  padding: 0.6rem 2.5rem 0.6rem 0.85rem; /* right padding reserves space for the eye button */
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
   font-size: 0.9rem;
@@ -414,6 +414,37 @@ textarea:focus {
   background: var(--color-input-fill);
   color: var(--color-text-primary);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Wrapper that positions the eye toggle inside the input box */
+.auth-page__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.auth-page__eye-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  transition: color 0.15s;
+}
+
+.auth-page__eye-btn:hover {
+  color: var(--color-text-primary);
 }
 
 .auth-page__input::placeholder {

@@ -69,6 +69,8 @@ export const ChatPanel: React.FC = () => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text } : m)))
   }
 
+  const [confirmClear, setConfirmClear] = React.useState(false)
+
   const handleClear = async () => {
     if (loading) return
     try {
@@ -78,6 +80,7 @@ export const ChatPanel: React.FC = () => {
     }
     setMessages([])
     setInput('')
+    setConfirmClear(false)
     inputRef.current?.focus()
   }
 
@@ -161,37 +164,46 @@ export const ChatPanel: React.FC = () => {
         }}>
           Ask about your forecast
         </h2>
-        <button
-          onClick={handleClear}
-          disabled={loading || messages.length === 0}
-          title="Clear conversation"
-          style={{
-            background: 'none',
-            border: '1px solid var(--color-border)',
-            borderRadius: '0.375rem',
-            padding: '0.25rem 0.6rem',
-            cursor: messages.length === 0 || loading ? 'not-allowed' : 'pointer',
-            color: messages.length === 0 || loading ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.75rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem',
-            opacity: messages.length === 0 || loading ? 0.45 : 1,
-            transition: 'opacity 0.15s',
-          }}
-          aria-label="Clear conversation"
-        >
-          {/* Trash icon */}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-          </svg>
-          Clear chat
-        </button>
+        {!confirmClear ? (
+          <button
+            onClick={() => messages.length > 0 && !loading && setConfirmClear(true)}
+            disabled={loading || messages.length === 0}
+            title="Clear conversation"
+            style={{
+              background: 'none',
+              border: '1px solid var(--color-border)',
+              borderRadius: '0.375rem',
+              padding: '0.25rem 0.6rem',
+              cursor: messages.length === 0 || loading ? 'not-allowed' : 'pointer',
+              color: messages.length === 0 || loading ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              opacity: messages.length === 0 || loading ? 0.45 : 1,
+              transition: 'opacity 0.15s',
+            }}
+            aria-label="Clear conversation"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+            Clear chat
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '0.72rem', color: 'var(--color-red)' }}>Clear all messages?</span>
+            <button onClick={handleClear} className="btn-danger"
+              style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}>Yes</button>
+            <button onClick={() => setConfirmClear(false)} className="btn-secondary"
+              style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}>Cancel</button>
+          </div>
+        )}
       </div>
 
       {/* ── Message thread ───────────────────────────────────────────────── */}

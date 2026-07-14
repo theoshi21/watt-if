@@ -92,6 +92,8 @@ export default function AccountSettingsPage() {
   // Data & privacy state
   const [confirmClearChat, setConfirmClearChat] = useState(false)
   const [confirmClearAll, setConfirmClearAll] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [confirmPasswordChange, setConfirmPasswordChange] = useState(false)
 
   // Data count for min_datapoints validation feedback
   const [dataEntryCount, setDataEntryCount] = useState<number | null>(null)
@@ -150,6 +152,13 @@ export default function AccountSettingsPage() {
     setSuccessMessage(null)
 
     if (!validate()) return
+
+    // Show confirmation dialog before submitting
+    if (!confirmPasswordChange) {
+      setConfirmPasswordChange(true)
+      return
+    }
+    setConfirmPasswordChange(false)
 
     setSubmitting(true)
     try {
@@ -331,6 +340,16 @@ export default function AccountSettingsPage() {
           >
             {submitting ? 'Updating…' : 'Update Password'}
           </button>
+          {confirmPasswordChange && !submitting && (
+            <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ ...meta, color: 'var(--color-red)' }}>Confirm password change?</span>
+              <button type="submit" className="btn-danger"
+                style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem' }}>Yes, update</button>
+              <button type="button" className="btn-secondary"
+                style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem' }}
+                onClick={() => setConfirmPasswordChange(false)}>Cancel</button>
+            </div>
+          )}
         </form>
       </section>
 
@@ -645,22 +664,25 @@ export default function AccountSettingsPage() {
 
       {/* ── Logout ───────────────────────────────────────────────────── */}
       <section className="card" aria-labelledby="logout-hd" style={{ borderColor: 'var(--color-red)' }}>
-        <h2
-          id="logout-hd"
-          style={{ ...sectionHeading, color: 'var(--color-red)' }}
-        >
-          Session
-        </h2>
+        <h2 id="logout-hd" style={{ ...sectionHeading, color: 'var(--color-red)' }}>Session</h2>
         <p style={{ ...meta, margin: '0 0 1rem' }}>
           Log out of your account. You will be redirected to the login page.
         </p>
-        <button
-          type="button"
-          className="btn-danger"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
+        {!confirmLogout ? (
+          <button type="button" className="btn-danger" onClick={() => setConfirmLogout(true)}>
+            Logout
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ ...meta, color: 'var(--color-red)' }}>Are you sure you want to log out?</span>
+            <button type="button" className="btn-danger"
+              style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem' }}
+              onClick={handleLogout}>Yes, log out</button>
+            <button type="button" className="btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '0.35rem 0.6rem' }}
+              onClick={() => setConfirmLogout(false)}>Cancel</button>
+          </div>
+        )}
       </section>
     </div>
   )

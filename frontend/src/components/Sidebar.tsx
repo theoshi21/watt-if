@@ -191,7 +191,6 @@ export default function Sidebar({ open: _open, onClose: _onClose }: SidebarProps
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  // Move focus to first nav link when sidebar opens on mobile
   useEffect(() => {
     if (_open && firstNavRef.current) {
       firstNavRef.current.focus()
@@ -199,11 +198,7 @@ export default function Sidebar({ open: _open, onClose: _onClose }: SidebarProps
   }, [_open])
 
   const handleLogout = () => {
-    try {
-      logout()
-    } catch {
-      // Network errors during logout — still clear local token (already done by logout())
-    }
+    try { logout() } catch { /* token already cleared */ }
     navigate('/login')
   }
 

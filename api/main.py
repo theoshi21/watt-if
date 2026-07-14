@@ -1626,6 +1626,33 @@ async def meralco_rate() -> MeralcoRateResponse:
 
 
 # ---------------------------------------------------------------------------
+# GET /meralco-rate/resolve — resolve the exact rate for a month + kWh
+# ---------------------------------------------------------------------------
+
+@app.get("/meralco-rate/resolve")
+async def meralco_rate_resolve(
+    year_month: str,
+    kwh: float = 300.0,
+    current_user: dict = Depends(get_current_user),
+) -> JSONResponse:
+    """Return the single ₱/kWh rate that will be stored for a given month and kWh.
+
+    This is the same logic used by POST /data-entries so the UI preview
+    matches exactly what gets saved.
+
+    Query params:
+      year_month — YYYY-MM (required)
+      kwh        — consumption in kWh used for bracket selection (default 300)
+    """
+    conn = _get_db_conn()
+    try:
+        rate = _resolve_meralco_rate_for_month(year_month, conn, user_id=current_user["id"])
+    finally:
+        conn.close()
+    return JSONResponse(content={"year_month": year_month, "kwh": kwh, "rate": rate})
+
+
+# ---------------------------------------------------------------------------
 # POST /meralco-rate/refresh  — force a fresh scrape, bypass cache
 # ---------------------------------------------------------------------------
 
