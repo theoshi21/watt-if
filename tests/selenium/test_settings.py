@@ -29,6 +29,27 @@ from tests.selenium.pages import (
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _login_via_ui_settings(driver, base_url: str, email: str, password: str) -> None:
+    """Log in via the UI login form and wait for redirect to dashboard."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    driver.get(f"{base_url}/login")
+    wait = WebDriverWait(driver, 20)
+    email_input = wait.until(EC.presence_of_element_located((By.ID, "login-email")))
+    time.sleep(0.5)
+    email_input.clear()
+    email_input.send_keys(email)
+    driver.find_element(By.ID, "login-password").send_keys(password)
+    driver.find_element(By.CSS_SELECTOR, "button[type='submit'].btn-primary").click()
+    wait.until(lambda d: "/login" not in d.current_url and "/register" not in d.current_url)
+
+
+# ---------------------------------------------------------------------------
 # SET-01: Settings page accessible via user account icon
 # ---------------------------------------------------------------------------
 
@@ -335,75 +356,67 @@ def test_SET_08_max_chat_history(logged_in_driver, base_url):
 
 
 @pytest.mark.settings
-def test_SET_09_auto_clear_chat_on_logout(logged_in_driver, base_url, api_url):
+def test_SET_09_auto_clear_chat_on_logout(base_url, api_url, driver):
     """Enabling auto-clear chat on logout, then logging out and back in,
-    results in no previous messages on the Ask page."""
-    driver = logged_in_driver
+    results in no previous messages on the Ask page.
+
+    Uses a dedicated test user so credentials are known for re-login.
+    """
+    import uuid as _uuid
+    import requests as _requests
+
+    # Create a dedicated user for this test so we can re-login after logout
+    unique_id = _uuid.uuid4().hex[:8]
+    email = f"test_autoclear_{unique_id}@test.com"
+    password = "TestPass123!"
+
+    reg = _requests.post(
+        f"{api_url}/auth/register",
+        json={"email": email, "password": password},
+        timeout=10,
+    )
+    assert reg.status_code == 201, f"Registration failed: {reg.text}"
+
+    # Login
+    _login_via_ui_settings(driver, base_url, email, password)
+
     ask_page = AskPage(driver, base_url)
     settings = AccountSettingsPage(driver, base_url)
 
-    # Step 1: Navigate to Ask page and send a message
+    # Step 1: Persist a chat message via API so we have something to clear
+    token = driver.execute_script("return window.localStorage.getItem('wattif_token')")
+    headers = {"Authorization": f"Bearer {token}"}
+    _requests.post(
+        f"{api_url}/chat-history",
+        json={"role": "user", "text": "Test message for auto-clear"},
+        headers=headers, timeout=10,
+    )
+
+    # Verify message exists
+    hist = _requests.get(f"{api_url}/chat-history", headers=headers, timeout=10).json()
+    assert len(hist) >= 1, "Message should exist before logout"
+
+    # Step 2: Enable auto-clear toggle in Settings
+    settings.navigate_to_settings()
+    WebDriverWait(driver, 15).until(lambda d: "/account" in d.current_url)
+    time.sleep(3)
+    settings.toggle_auto_clear()
+    time.sleep(1)
+
+    # Step 3: Logout (triggers confirmation dialog via page object)
+    settings.click_logout()
+    WebDriverWait(driver, 15).until(lambda d: "/login" in d.current_url)
+
+    # Step 4: Re-login with the same credentials
+    _login_via_ui_settings(driver, base_url, email, password)
+
+    # Step 5: Verify chat is empty on the Ask page
     ask_page.navigate("/ask")
     time.sleep(2)
-    WebDriverWait(driver, 15).until(
-        lambda d: ask_page.get_empty_state_text() is not None
-        or len(ask_page.get_messages()) > 0
-    )
-    ask_page.send_message("Test message for auto-clear")
-    ask_page.wait_for_response(timeout=30)
 
-    messages_before = ask_page.get_messages()
-    assert len(messages_before) >= 1, "Should have at least one message before logout"
-
-    # Step 2: Navigate to Settings and enable auto-clear toggle
-    settings.navigate_to_settings()
-    WebDriverWait(driver, 15).until(
-        lambda d: "/account" in d.current_url
-    )
-    time.sleep(3)  # Allow settings page to fully load
-    settings.toggle_auto_clear()
-    time.sleep(1)  # Allow save to process
-
-    # Step 3: Logout via settings page
-    settings.click_logout()
-
-    # Wait for redirect to login page
-    WebDriverWait(driver, 15).until(
-        lambda d: "/login" in d.current_url
-    )
-
-    # Step 4: Log back in
-    # Extract user credentials from the test - use the login page manually
-    # The logged_in_driver fixture creates a unique user, but we need their email.
-    # Since we can't get the email directly, we'll use localStorage or the login form.
-    # Re-login using the UI - the token was removed so we get redirected
-    # We need to get the user's email from before logout
-    # Since we can't access the fixture's internal email, we'll check localStorage
-    # Actually, after logout the token is gone. We can't log back in without credentials.
-    # However, the test still validates: navigate to ask and confirm empty.
-    # For this test, we'll re-register and login a new user is not feasible.
-    # Instead, we validate by checking that after logout, navigating to login works.
-    # The key assertion is that auto-clear was triggered on logout.
-    # Since we can't re-login with the same fixture user easily,
-    # we verify by checking the API directly or accept the logout-cleared state.
-
-    # Alternative approach: Use the API to check chat history is empty
-    # For a full E2E test, we use the login page
-    # The conftest creates user with email test_<uuid>@test.com and password TestPass123!
-    # We can look at page source or re-login
-    # Let's perform the login through the UI using known patterns
-    wait = WebDriverWait(driver, 10)
-    email_input = wait.until(EC.presence_of_element_located((By.ID, "login-email")))
-
-    # We can't know the email, but we can check the email field's autofill
-    # Since we can't re-login with the original credentials in this fixture context,
-    # we'll mark this as a best-effort validation that auto-clear was set.
-    # The auto-clear toggle was enabled and logout was performed successfully.
-    # In a real test run, the fixture would need to expose credentials.
-
-    # Verify we successfully logged out (on login page)
-    assert "/login" in driver.current_url, (
-        "Expected redirect to /login after logout"
+    messages = ask_page.get_messages()
+    assert len(messages) == 0, (
+        f"Expected empty chat after auto-clear on logout, found {len(messages)} messages"
     )
 
 

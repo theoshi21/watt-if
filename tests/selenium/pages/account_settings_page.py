@@ -97,6 +97,10 @@ class AccountSettingsPage(BasePage):
         By.XPATH,
         "//section[@aria-labelledby='logout-hd']//button[contains(text(),'Logout')]",
     )
+    LOGOUT_CONFIRM_BUTTON = (
+        By.XPATH,
+        "//section[@aria-labelledby='logout-hd']//button[contains(text(),'Yes, log out')]",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         """Initialize AccountSettingsPage.
@@ -114,7 +118,7 @@ class AccountSettingsPage(BasePage):
     # --- Password Change Methods ---
 
     def change_password(self, current: str, new: str, confirm: str) -> None:
-        """Fill the password change form and submit it.
+        """Fill the password change form, submit, then confirm the dialog.
 
         Args:
             current: The current password.
@@ -133,8 +137,15 @@ class AccountSettingsPage(BasePage):
         confirm_input.clear()
         confirm_input.send_keys(confirm)
 
+        # First click — triggers the "Confirm password change?" dialog
         submit_btn = self.wait_for_clickable(self.PASSWORD_SUBMIT_BUTTON)
         submit_btn.click()
+
+        # Click "Yes, update" in the confirmation dialog
+        yes_btn = self.wait_for_clickable(
+            (By.XPATH, "//button[contains(text(),'Yes, update')]")
+        )
+        yes_btn.click()
 
     # --- Feedback Methods ---
 
@@ -313,6 +324,9 @@ class AccountSettingsPage(BasePage):
     # --- Logout Methods ---
 
     def click_logout(self) -> None:
-        """Click the Logout button in the Session section."""
+        """Click the Logout button and confirm the 'Are you sure?' dialog."""
         logout_btn = self.wait_for_clickable(self.LOGOUT_BUTTON)
         logout_btn.click()
+        # Confirm the "Are you sure you want to log out?" dialog
+        confirm_btn = self.wait_for_clickable(self.LOGOUT_CONFIRM_BUTTON)
+        confirm_btn.click()

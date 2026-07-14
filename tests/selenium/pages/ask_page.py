@@ -77,9 +77,14 @@ class AskPage(BasePage):
         return messages
 
     def clear_chat(self) -> None:
-        """Click the 'Clear conversation' button to remove all messages."""
+        """Click the 'Clear conversation' button and confirm the dialog."""
         clear_btn = self.wait_for_clickable(self.CLEAR_BUTTON)
         clear_btn.click()
+        # Confirm the "Clear all messages?" dialog
+        confirm_btn = self.wait_for_clickable(
+            (By.XPATH, "//button[normalize-space()='Yes']")
+        )
+        confirm_btn.click()
 
     def is_send_enabled(self) -> bool:
         """Check whether the submit (Ask) button is currently enabled.
