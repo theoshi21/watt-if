@@ -26,11 +26,12 @@ from tests.selenium.pages import AccountSettingsPage, LoginPage, RegisterPage, S
 
 @pytest.mark.account
 def test_ACT_01_valid_registration(driver, base_url, api_url):
-    """Submitting a valid email and a password ≥8 characters creates a new account and auto-logs in."""
+    """Submitting a valid email and a strong password (min 8 chars, uppercase, lowercase,
+    digit, and special character) creates a new account and auto-logs in."""
     # Generate a unique email to avoid conflicts
     unique_id = uuid.uuid4().hex[:12]
     email = f"test_{unique_id}@example.com"
-    password = "SecurePass1"
+    password = "TestPass123!"
 
     page = RegisterPage(driver, base_url)
     page.register(email, password, password)
@@ -75,7 +76,7 @@ def test_ACT_02_duplicate_email(driver, base_url, api_url):
     # First, register a user via API to ensure the email exists
     unique_id = uuid.uuid4().hex[:12]
     email = f"test_dup_{unique_id}@example.com"
-    password = "SomePass123"
+    password = "TestPass123!"
 
     response = requests.post(
         f"{api_url}/auth/register",
@@ -102,7 +103,7 @@ def test_ACT_02_duplicate_email(driver, base_url, api_url):
 
 @pytest.mark.account
 def test_ACT_03_short_password(driver, base_url):
-    """A password shorter than 8 characters prevents form submission."""
+    """A password shorter than 8 characters prevents form submission (submit button disabled)."""
     page = RegisterPage(driver, base_url)
     page.navigate("/register")
 
@@ -119,9 +120,35 @@ def test_ACT_03_short_password(driver, base_url):
     confirm_field.clear()
     confirm_field.send_keys("abc")
 
-    # Submit button should be disabled
+    # Submit button should be disabled — password fails length + strength requirements
     assert page.is_submit_enabled() is False, (
         "Expected Submit button to be disabled for password shorter than 8 characters"
+    )
+
+
+@pytest.mark.account
+def test_ACT_03b_weak_password_missing_requirements(driver, base_url):
+    """A password that meets length (≥8) but is missing uppercase, digit, or special
+    character does not satisfy the strength policy and keeps the submit button disabled."""
+    page = RegisterPage(driver, base_url)
+    page.navigate("/register")
+
+    email_field = page.wait_for_element(RegisterPage.EMAIL_INPUT)
+    email_field.clear()
+    email_field.send_keys("weak@example.com")
+
+    # 8+ chars but no uppercase, digit, or special character
+    password_field = page.wait_for_element(RegisterPage.PASSWORD_INPUT)
+    password_field.clear()
+    password_field.send_keys("alllowercase")
+
+    confirm_field = page.wait_for_element(RegisterPage.CONFIRM_PASSWORD_INPUT)
+    confirm_field.clear()
+    confirm_field.send_keys("alllowercase")
+
+    # Submit button should be disabled — missing uppercase, digit, and special character
+    assert page.is_submit_enabled() is False, (
+        "Expected Submit button to be disabled for password missing uppercase/digit/special character"
     )
 
 
@@ -138,11 +165,11 @@ def test_ACT_04_password_mismatch(driver, base_url):
 
     password_field = page.wait_for_element(RegisterPage.PASSWORD_INPUT)
     password_field.clear()
-    password_field.send_keys("ValidPass1")
+    password_field.send_keys("ValidPass1!")
 
     confirm_field = page.wait_for_element(RegisterPage.CONFIRM_PASSWORD_INPUT)
     confirm_field.clear()
-    confirm_field.send_keys("DifferentPass2")
+    confirm_field.send_keys("DifferentPass2!")
 
     # Submit button should be disabled
     assert page.is_submit_enabled() is False, (
@@ -163,11 +190,11 @@ def test_ACT_05_invalid_email_format(driver, base_url):
 
     password_field = page.wait_for_element(RegisterPage.PASSWORD_INPUT)
     password_field.clear()
-    password_field.send_keys("ValidPass1")
+    password_field.send_keys("ValidPass1!")
 
     confirm_field = page.wait_for_element(RegisterPage.CONFIRM_PASSWORD_INPUT)
     confirm_field.clear()
-    confirm_field.send_keys("ValidPass1")
+    confirm_field.send_keys("ValidPass1!")
 
     # Try to click submit
     submit_btn = page.wait_for_clickable(RegisterPage.SUBMIT_BUTTON)
@@ -664,7 +691,7 @@ def test_ACT_18_model_isolation(driver, base_url, api_url):
     """User A has a trained model → User B sees 'no model' state on Forecast page."""
     from tests.selenium.pages import ForecastPage, LoginPage
 
-    # The default account (wattif@gmail.com / wattif) already has a trained model.
+    # The default/seed account already has a trained model.
     # Register a new User B who has no data and no trained model.
     user_b_email = f"test_model_b_{uuid.uuid4().hex[:8]}@test.com"
     password = "TestPass123!"
@@ -702,8 +729,10 @@ def test_ACT_18_model_isolation(driver, base_url, api_url):
 
 @pytest.mark.account
 def test_ACT_21_valid_password_change(driver, base_url, api_url):
-    """ACT-21: Valid current password and new password (≥8 chars with matching
-    confirmation) results in a success message, and user can re-login with new password."""
+    """ACT-21: Valid current password and strong new password (min 8 chars, uppercase,
+    lowercase, digit, special character, matching confirmation) — user confirms the
+    change via the 'Confirm password change?' dialog — results in a success message,
+    and user can re-login with new password."""
     email = f"test_pwchange_{uuid.uuid4().hex[:8]}@test.com"
     old_password = "OldPass123!"
     new_password = "NewPass456!"

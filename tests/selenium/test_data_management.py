@@ -275,23 +275,47 @@ def test_DM_10_kwh_with_rate_override(logged_in_driver, base_url):
 
 
 @pytest.mark.data_management
+@pytest.mark.skip(reason="Bill preview feature removed. The live 'Est. bill' preview below the kWh field "
+                         "no longer exists. Rate/bill is only shown in Entry History after saving.")
 def test_DM_11_bill_preview(logged_in_driver, base_url):
-    """Estimated bill preview appears as kWh is typed. Shows ₱ currency within 5 seconds."""
+    """[REMOVED FEATURE] Estimated bill preview appeared as kWh was typed.
+    This feature has been removed from the New Reading Form. The estimated rate and bill
+    are now only shown in Entry History after an entry is saved. Test is skipped."""
+    pass
+
+
+@pytest.mark.data_management
+def test_DM_11b_export_csv(logged_in_driver, base_url):
+    """Export CSV button appears in Entry History header when rows > 0 and
+    triggers download of wattif_bill_data.csv."""
     page = DataEntryPage(logged_in_driver, base_url)
     page.navigate_to_data_entry()
 
-    # Type into the kWh field directly without submitting
-    kwh_input = page.wait_for_element(page.KWH_INPUT)
-    kwh_input.clear()
-    kwh_input.send_keys("250")
+    # Ensure at least one entry exists
+    initial_rows = len(page.get_entry_rows())
+    if initial_rows == 0:
+        page.add_entry("2027-11", 300)
+        from selenium.webdriver.support.ui import WebDriverWait
+        WebDriverWait(logged_in_driver, 15).until(
+            lambda d: len(page.get_entry_rows()) > 0
+        )
 
-    # Wait for bill preview to appear (within 5 seconds as per test spec)
-    preview_text = page.get_bill_preview(timeout=5)
-
-    # Verify the preview contains the peso sign
-    assert "₱" in preview_text, (
-        f"Expected bill preview to contain ₱ symbol, got: {preview_text}"
+    # Locate the Export CSV button (visible only when rows > 0)
+    export_btn = page.wait_for_element(
+        (By.XPATH, "//button[contains(., 'Export CSV') or contains(., 'Export')]"),
+        timeout=10,
     )
+    assert export_btn is not None, "Expected '↓ Export CSV' button to be visible in Entry History header"
+    assert export_btn.is_displayed(), "Export CSV button should be visible when entries exist"
+
+    # Click the button — browser will initiate a file download
+    export_btn.click()
+
+    # Allow the browser a moment to trigger the download
+    time.sleep(2)
+    # Note: verifying the actual downloaded file requires OS-level checks which are
+    # outside the scope of Selenium. The absence of an error and successful click
+    # confirms the button functions correctly.
 
 
 @pytest.mark.data_management

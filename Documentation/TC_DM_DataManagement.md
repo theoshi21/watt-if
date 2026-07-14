@@ -9,7 +9,7 @@
 ---
 
 **Pre-condition:** The backend is running on port 8000 and the frontend is open in a browser. The Data Entry page is accessible.  
-**Dependencies:** Meralco rate API for live bill preview; backend endpoints for all CRUD operations.  
+**Dependencies:** Backend endpoints for all CRUD operations; Meralco rate API for entry history rate display.  
 **Test Priority:** High
 
 ---
@@ -110,11 +110,20 @@
 
 ---
 
-### DM-11: Live bill preview appears while typing
-**Summary:** Estimated bill shown as kWh is typed.
+### DM-11: ~~Live bill preview appears while typing~~ [REMOVED — Feature no longer exists]
+**Summary:** ~~Estimated bill shown as kWh is typed.~~ The live "Est. bill" preview has been removed from the New Reading Form. The estimated rate and bill are only shown in Entry History after saving an entry.
+**Status:** ⛔ N/A — Feature Removed
+
+---
+
+### DM-11b: Export CSV button appears and downloads file
+**Summary:** "↓ Export CSV" button is visible in the Entry History section header when at least one entry exists, and clicking it downloads `wattif_bill_data.csv`.
 **Test Steps:**
-1. Click into kWh field. Type `250`.
-**Expected Result:** Estimated bill preview appears (e.g., "Est. bill: ₱2,950 @ ₱11.80/kWh").
+1. Ensure at least one entry exists in Entry History.
+2. Verify the "↓ Export CSV" button is visible in the Entry History section header.
+3. Click **↓ Export CSV**.
+**Test Data:** Any existing entry (e.g., from DM-01)
+**Expected Result:** File `wattif_bill_data.csv` is downloaded. Button is not shown when history is empty.
 **Status:** ⬜ Not Run
 
 ---

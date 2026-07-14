@@ -82,6 +82,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 **Login Page (`/login`)**
 - Email input (`#login-email`, type=email, required)
 - Password input (`#login-password`, type=password, required)
+- Show/Hide password toggle button (eye icon inside password field, CSS class `auth-page__eye-btn`, aria-label "Show password" / "Hide password")
 - "Sign In" submit button (disabled while submitting)
 - Error alert (`role="alert"`) for invalid credentials
 - "Register" link → navigates to `/register`
@@ -89,11 +90,12 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 
 **Register Page (`/register`)**
 - Email input (`#register-email`, type=email, required)
-- Password input (`#register-password`, type=password, required, min 8 chars)
+- Password input (`#register-password`, type=password, required, min 8 chars + uppercase + lowercase + digit + special character)
+- Show/Hide password toggle button (eye icon inside password field, CSS class `auth-page__eye-btn`, aria-label "Show password" / "Hide password")
 - Confirm Password input (`#register-confirm-password`, type=password, required)
-- Password length hint (shown when < 8 chars entered)
+- Live password strength checklist (5 inline requirements: min 8 chars, uppercase letter, lowercase letter, digit, special character — each ticked as condition is met)
 - Password mismatch hint (shown when confirm ≠ password)
-- "Create Account" submit button (disabled until valid)
+- "Create Account" submit button (disabled until all 5 strength requirements met and passwords match)
 - Error alert (`role="alert"`) for duplicate email or API errors
 - "Sign in" link → navigates to `/login`
 
@@ -117,7 +119,6 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 - Month selector: Month dropdown (`aria-label="Month"`, options Jan–Dec) + Year dropdown (`aria-label="Year"`, 10-year range)
 - kWh input (`#r-kwh`, type=number, min=0, max=99999, step=any, required)
 - kWh error message (`#kwh-err`, `role="alert"`)
-- Live bill preview (shown when kWh > 0 and rate available, bill field empty)
 - Optional Overrides section (`<details>` toggle):
   - Actual Bill Amount input (`#r-bill`, type=number, min=0, step=any, placeholder="Auto: kWh × rate")
   - Rate Override input (`#r-rate`, type=number, min=0, step=any, placeholder="Auto: live Meralco rate")
@@ -148,6 +149,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 - Pagination controls: « ‹ page numbers › » buttons, page indicator text
 - Entry count display (e.g. "42 entries")
 - Empty state message when no entries
+- "↓ Export CSV" button (shown in Entry History section header when rows > 0, downloads `wattif_bill_data.csv`)
 
 **Danger Zone**
 - "Clear All Data…" button (btn-danger)
@@ -173,7 +175,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
   - "Daily Average" — kWh/day
   - "Avg Temp" — °C
   - "Avg Humidity" — %
-- Anomaly Card (conditional): shown when first forecast month > 110% of mean
+- Anomaly Card (conditional): shown when first forecast month > 110% of mean; uses red styling (red left border, red background, red text)
 - "Consumption History" section heading
 - ForecastChart component (same as Forecast page)
 - Loading skeleton (4 card skeletons + 1 chart skeleton, `aria-hidden="true"`)
@@ -186,7 +188,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 
 **Ask Page (`/ask`) — ChatPanel component**
 - "Ask about your forecast" section heading
-- "Clear chat" button (trash icon, disabled when no messages or loading, `aria-label="Clear conversation"`)
+- "Clear chat" button (trash icon, disabled when no messages or loading, `aria-label="Clear conversation"`) — clicking shows inline confirmation: "Clear all messages?" with "Yes" + "Cancel" buttons
 - Message thread (`role="log"`, `aria-live="polite"`, `aria-label="Conversation"`)
   - User message bubbles (right-aligned, accent color)
   - Assistant message bubbles (left-aligned, card color, markdown rendered)
@@ -215,7 +217,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 - Auto-bracket label (shows detected bracket when set to auto)
 - Estimated Bill total card (accent color, shows ₱ total, kWh, effective rate, customer type + bracket)
 - "Enter your monthly consumption" placeholder when no kWh entered
-- Bill breakdown table (right panel): Generation, Transmission, System Loss, Distribution, Supply, Supply (fixed), Metering, Metering (fixed), UC/FIT/GEA/AWAT/Other, Total Amount Due — each with sublabel showing rate × kWh and VAT %
+- Bill breakdown table (right panel): Generation, Transmission, System Loss, Distribution, Supply, Supply (fixed), Metering, Metering (fixed), UC/FIT/GEA/AWAT/Other, Total Amount Due — each with sublabel showing rate × kWh, VAT %, and **percentage of total bill shown next to each line item label**
 - Fallback rate warning (shown when `is_fallback = true`)
 - Source link to Meralco Rates Archive
 - Last fetched timestamp
@@ -246,7 +248,8 @@ The following screens, forms, fields, buttons, and components are in scope, orga
   - "Clear All Data & Model" button (btn-danger) → inline confirmation: "Yes, delete all" + "Cancel"
 - Global success toast (dismissible, `role="status"`)
 - Global error message (`role="alert"`)
-- Logout button (btn-danger, in Session section)
+- Logout button (btn-danger, in Session section) — clicking shows confirmation: "Are you sure you want to log out?" with "Yes, log out" + "Cancel" buttons
+- **Change Password "Update Password" button**: first submission shows confirmation dialog "Confirm password change?" with "Yes, update" + "Cancel"
 
 ---
 
@@ -265,7 +268,7 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 - Health Indicator component
 - Model Status Pill component
 - User email display (truncated at 24 chars, `aria-label="Logged in as {email}"`)
-- Logout button (`aria-label="Logout"`, with icon)
+- Logout button (`aria-label="Logout"`, with icon) — direct logout, no confirmation dialog
 
 **Health Indicator**
 - Status display: all-green (operational) or degraded states per subsystem
@@ -326,16 +329,17 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 ## 5. Features to Be Tested
 
 ### Module 1: Account System
-- Registration: valid email/password, duplicate email rejection, short password rejection, invalid email, mismatched confirmation
-- Login: correct credentials, wrong password (generic error), non-existent email (same error), rate limiting after 10 failures
-- Logout: token clearance, redirect to login, offline handling
+- Registration: valid email/strong password (min 8 chars + uppercase + lowercase + digit + special character), duplicate email rejection, short/weak password rejection (live strength checklist), invalid email, mismatched confirmation; show-password eye toggle on Register and Login pages
+- Login: correct credentials, wrong password (generic error), non-existent email (same error), rate limiting after 10 failures; show-password eye toggle
+- Logout: sidebar logout is direct (no confirmation); Settings page logout shows confirmation dialog ("Are you sure you want to log out?")
 - Session: token persistence across refresh, expired token re-login, API 401 clearance
 - Data isolation: per-user entries, per-user chat, per-user model, cross-user access prevention (403)
-- Password change: valid change, incorrect current password, mismatched new passwords
+- Password change: valid change (with confirmation dialog), incorrect current password, mismatched new passwords
 
 ### Module 2: Data Management
-- Manual entry: valid input acceptance, field validation (blank/zero/negative/non-numeric), live bill preview, duplicate month handling, optional overrides
+- Manual entry: valid input acceptance, field validation (blank/zero/negative/non-numeric), duplicate month handling, optional overrides; **live bill preview removed — rate/bill shown only in Entry History after saving**
 - CSV upload: valid CSV (minimum + extended columns), invalid file types, missing columns, blank values (imputation), duplicate months, re-upload deduplication
+- **Export CSV:** "↓ Export CSV" button visible in Entry History header when rows > 0, downloads `wattif_bill_data.csv`
 - **CSV edge cases:** corrupted CSV file, empty CSV file, very large CSV (10,000+ rows), CSV with special characters, UTF-8 encoding issues, formula injection (cells beginning with `=`)
 - Model training: trigger with sufficient/insufficient data, status transitions, model info update, concurrent training prevention, interrupted training process
 - Entry History: inline edit (valid/invalid), delete with confirmation, cancel edit, pagination (10/page), page navigation
@@ -351,19 +355,21 @@ The following screens, forms, fields, buttons, and components are in scope, orga
 ### Module 4: Chat Assistant
 - Question submission (button + Enter), empty message prevention, streaming response
 - Input limit (500 chars), out-of-scope question handling
-- History persistence, loading on mount, Clear Chat
+- History persistence, loading on mount, Clear Chat — clicking "Clear chat" shows inline confirmation ("Clear all messages?" with "Yes" + "Cancel")
 - Ollama offline error handling
 
 ### Module 5: Price Calculator
 - Valid/invalid kWh input, boundary values, rate loading, fallback when API unavailable
 - Auto bracket selection, manual override, customer type change
-- Bill breakdown correctness, rate refresh
+- Bill breakdown correctness, rate refresh; **percentage of total shown next to each line item label**
 - **Edge cases:** decimal kWh values, invalid currency format, API timeout while retrieving rates, negative rate values, missing rate service
 
 ### Module 6: Settings
 - Customer type, forecast horizon, rate override (with boundaries), chat preferences
 - Notification thresholds, model retraining options, data/privacy controls
 - Input boundaries, persistence across navigation/refresh
+- **Logout (Settings page):** confirmation dialog ("Are you sure you want to log out?" with "Yes, log out" + "Cancel") before logging out
+- **Update Password:** confirmation dialog ("Confirm password change?" with "Yes, update" + "Cancel") before applying change
 
 ### Module 7: System & Infrastructure
 - Dark/light mode toggle + persistence, sidebar navigation, active item highlighting
