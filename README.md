@@ -45,7 +45,7 @@ Upload your monthly electricity bill history as a CSV or enter readings manually
 - **JWT authentication** — 24-hour token expiry, bcrypt password hashing (cost 12)
 - **Login rate limiting** — max 10 failed attempts per email within a 15-minute window (HTTP 429)
 - **Timing-attack mitigation** — dummy bcrypt check on non-existent emails
-- **Default account** — auto-seeded `wattif@gmail.com` / `wattif` for first-time use
+- **Default account** — auto-seeded `wattif@gmail.com` / `Wattif123!` for first-time use
 - **Auto-login** — if no additional accounts exist, logs in with the default account automatically
 - **Change password** — requires current password confirmation
 - **Per-user data isolation** — all data (bills, entries, forecasts, chat history, models) is scoped to the authenticated user
@@ -203,7 +203,7 @@ Open **http://localhost:5173** in your browser.
 
 ### Step 1 — Log in
 
-On first launch, the app auto-logs in with the default account (`wattif@gmail.com` / `wattif`). If you've registered additional accounts, you'll see the login page instead.
+On first launch, the app auto-logs in with the default account (`wattif@gmail.com` / `Wattif123!`). If you've registered additional accounts, you'll see the login page instead.
 
 - **Register** a new account from the login page
 - **Change password** via the Account Settings page in the sidebar

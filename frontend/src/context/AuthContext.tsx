@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const loginRes = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'wattif@gmail.com', password: 'wattif' }),
+                body: JSON.stringify({ email: 'wattif@gmail.com', password: 'Wattif123!' }),
               })
               if (loginRes.ok) {
                 const loginData = (await loginRes.json()) as { token: string; email: string }

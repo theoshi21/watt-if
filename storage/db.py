@@ -167,7 +167,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
     Steps:
       1. Add ``user_id`` column to tables that lack it.
       1b. Migrate monthly_bill_records to composite PK (user_id, year_month).
-      2. Seed the default account (wattif@gmail.com / wattif).
+      2. Seed the default account (wattif@gmail.com / Wattif123!).
       3. Assign orphaned rows (NULL user_id) to the default account.
 
     Raises
@@ -252,7 +252,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         if row is None:
             logger.info("Seeding default account (wattif@gmail.com).")
             password_hash = bcrypt.hashpw(
-                "wattif".encode("utf-8"), bcrypt.gensalt(rounds=12)
+                "Wattif123!".encode("utf-8"), bcrypt.gensalt(rounds=12)
             ).decode("utf-8")
             created_at = datetime.now(timezone.utc).isoformat()
             conn.execute(

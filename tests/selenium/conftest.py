@@ -356,13 +356,13 @@ def default_account_driver(
     driver: webdriver.Chrome, base_url: str
 ) -> Generator[webdriver.Chrome, None, None]:
     """
-    WebDriver authenticated as the default account (wattif@gmail.com / wattif).
+    WebDriver authenticated as the default account (wattif@gmail.com / Wattif123!).
 
     Used for tests that require pre-existing data and a trained model.
 
     Requirement: 3.2
     """
-    _login_via_ui(driver, base_url, "wattif@gmail.com", "wattif")
+    _login_via_ui(driver, base_url, "wattif@gmail.com", "Wattif123!")
 
     yield driver
 
