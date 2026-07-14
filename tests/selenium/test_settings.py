@@ -680,14 +680,18 @@ def test_SET_14_auto_retrain_toggle_persistence(logged_in_driver, base_url):
 
     if not is_checked_before:
         settings.toggle_auto_retrain()
-        time.sleep(2)
+        # Wait for the save to complete (success toast appears)
+        try:
+            settings.get_success_message(timeout=10)
+        except Exception:
+            time.sleep(3)  # Fallback wait if toast not detected
 
     # Reload the page
     driver.refresh()
     WebDriverWait(driver, 15).until(
         lambda d: "/account" in d.current_url
     )
-    time.sleep(3)
+    time.sleep(5)  # Allow settings to fully load from backend
 
     # Verify the toggle is still enabled via JavaScript
     is_checked_after = driver.execute_script(
