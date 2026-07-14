@@ -353,16 +353,51 @@ def logged_in_driver(
 
 @pytest.fixture(scope="function")
 def default_account_driver(
-    driver: webdriver.Chrome, base_url: str
+    driver: webdriver.Chrome, base_url: str, api_url: str
 ) -> Generator[webdriver.Chrome, None, None]:
     """
     WebDriver authenticated as the default account (wattif@gmail.com / Wattif123!).
 
-    Used for tests that require pre-existing data and a trained model.
+    Ensures the account has data and a trained model by uploading the synthetic CSV
+    and triggering a retrain via API if the model is not already trained.
 
     Requirement: 3.2
     """
     _login_via_ui(driver, base_url, "wattif@gmail.com", "Wattif123!")
+
+    # Ensure data and trained model exist for the default account
+    try:
+        token = _get_auth_token(api_url, "wattif@gmail.com", "Wattif123!")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Check model info — if no model, upload CSV and train
+        model_resp = requests.get(f"{api_url}/model-info", headers=headers, timeout=10)
+        needs_training = (
+            model_resp.status_code != 200
+            or model_resp.json().get("trained_at") is None
+        )
+
+        if needs_training:
+            csv_path = Path(__file__).resolve().parents[2] / "data" / "synthetic_2022_2025.csv"
+            if csv_path.exists():
+                with open(csv_path, "rb") as f:
+                    requests.post(
+                        f"{api_url}/upload",
+                        files={"file": ("synthetic_2022_2025.csv", f, "text/csv")},
+                        headers=headers,
+                        timeout=30,
+                    )
+                # Trigger training and wait up to 120s for it to complete
+                requests.post(f"{api_url}/retrain", headers=headers, timeout=10)
+                for _ in range(60):
+                    time.sleep(2)
+                    status = requests.get(
+                        f"{api_url}/status", headers=headers, timeout=10
+                    ).json().get("status", "idle")
+                    if status in ("done", "idle", "failed"):
+                        break
+    except Exception:
+        pass  # Non-fatal — test will still run, may skip if no model
 
     yield driver
 

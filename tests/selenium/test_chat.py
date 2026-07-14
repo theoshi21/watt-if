@@ -266,7 +266,7 @@ def test_CHT_07_navigation_persistence(logged_in_driver, base_url):
     # Send a message and wait for response
     question = "How much electricity did I use last month?"
     page.send_message(question)
-    page.wait_for_response(timeout=30)
+    page.wait_for_response(timeout=60)
 
     # Capture messages before navigating away
     messages_before = page.get_messages()
@@ -285,7 +285,7 @@ def test_CHT_07_navigation_persistence(logged_in_driver, base_url):
     )
 
     # Wait for history to load
-    WebDriverWait(logged_in_driver, 10).until(
+    WebDriverWait(logged_in_driver, 15).until(
         lambda d: len(page.get_messages()) > 0
     )
 

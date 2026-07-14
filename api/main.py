@@ -1150,6 +1150,7 @@ def _resolve_exog_for_month(
     year_month: str,
     conn: sqlite3.Connection,
     user_id: int | None = None,
+    kwh: float = 300.0,
 ) -> dict[str, float]:
     """Build the best possible exogenous variable values for a given year_month.
 
@@ -1211,7 +1212,7 @@ def _bridge_entry_to_bill_records(
     If rate_override is provided it is used directly instead of the auto-resolved rate.
     If bill_amount is provided it is used as price; otherwise price = kwh × rate.
     """
-    exog = _resolve_exog_for_month(year_month, conn, user_id=user_id)
+    exog = _resolve_exog_for_month(year_month, conn, user_id=user_id, kwh=kwh)
 
     # Rate: explicit override beats auto-resolved
     if rate_override is not None and rate_override > 0:
