@@ -93,9 +93,9 @@ const fieldLabel: React.CSSProperties = {
 
 // ── Bill line component ───────────────────────────────────────────────────
 
-function BillLine({ label, sublabel, amount, bold, dim, separator }: {
+function BillLine({ label, sublabel, amount, bold, dim, separator, pct }: {
   label: string; sublabel?: string; amount: number
-  bold?: boolean; dim?: boolean; separator?: boolean
+  bold?: boolean; dim?: boolean; separator?: boolean; pct?: number
 }) {
   return (
     <div style={{
@@ -107,6 +107,11 @@ function BillLine({ label, sublabel, amount, bold, dim, separator }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', minWidth: 0 }}>
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: bold ? '0.9rem' : '0.85rem', fontWeight: bold ? 700 : 400, color: 'var(--color-text-primary)' }}>
           {label}
+          {pct != null && !bold && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>
+              {pct.toFixed(2)}%
+            </span>
+          )}
         </span>
         {sublabel && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
@@ -330,15 +335,15 @@ export default function PriceCalculatorPage() {
 
             {lines && bracket ? (
               <div>
-                <BillLine label="Generation"       sublabel={`₱${bracket.generation_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 9.22% VAT`}   amount={lines.gen} />
-                <BillLine label="Transmission"     sublabel={`₱${bracket.transmission_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 11.14% VAT`} amount={lines.trans} />
-                <BillLine label="System Loss"      sublabel={`₱${bracket.system_loss_per_kwh.toFixed(4)} × ${kwh} kWh · 9.46% VAT`}          amount={lines.sl} />
-                <BillLine label="Distribution"     sublabel={`₱${bracket.distribution_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}    amount={lines.dist} />
-                <BillLine label="Supply"           sublabel={`₱${bracket.supply_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}                 amount={lines.supKwh} />
-                <BillLine label="Supply (fixed)"   sublabel={`₱${bracket.supply_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                      amount={lines.supFix} />
-                <BillLine label="Metering"         sublabel={`₱${bracket.metering_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}               amount={lines.metKwh} />
-                <BillLine label="Metering (fixed)" sublabel={`₱${bracket.metering_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                   amount={lines.metFix} />
-                <BillLine label="UC / FIT / GEA / AWAT / Other" sublabel={`₱${bracket.other_charges_per_kwh.toFixed(4)} × ${kwh} kWh · VAT-exempt`} amount={lines.other} dim={lines.other < 0} />
+                <BillLine label="Generation"       sublabel={`₱${bracket.generation_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 9.22% VAT`}   amount={lines.gen}    pct={lines.gen / lines.total * 100} />
+                <BillLine label="Transmission"     sublabel={`₱${bracket.transmission_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 11.14% VAT`} amount={lines.trans}  pct={lines.trans / lines.total * 100} />
+                <BillLine label="System Loss"      sublabel={`₱${bracket.system_loss_per_kwh.toFixed(4)} × ${kwh} kWh · 9.46% VAT`}          amount={lines.sl}     pct={lines.sl / lines.total * 100} />
+                <BillLine label="Distribution"     sublabel={`₱${bracket.distribution_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}    amount={lines.dist}   pct={lines.dist / lines.total * 100} />
+                <BillLine label="Supply"           sublabel={`₱${bracket.supply_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}                 amount={lines.supKwh} pct={lines.supKwh / lines.total * 100} />
+                <BillLine label="Supply (fixed)"   sublabel={`₱${bracket.supply_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                      amount={lines.supFix} pct={lines.supFix / lines.total * 100} />
+                <BillLine label="Metering"         sublabel={`₱${bracket.metering_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}               amount={lines.metKwh} pct={lines.metKwh / lines.total * 100} />
+                <BillLine label="Metering (fixed)" sublabel={`₱${bracket.metering_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                   amount={lines.metFix} pct={lines.metFix / lines.total * 100} />
+                <BillLine label="UC / FIT / GEA / AWAT / Other" sublabel={`₱${bracket.other_charges_per_kwh.toFixed(4)} × ${kwh} kWh · VAT-exempt`} amount={lines.other} dim={lines.other < 0} pct={lines.other / lines.total * 100} />
                 <BillLine label="Total Amount Due" amount={lines.total} bold separator />
                 <p style={{ ...meta, marginTop: '0.75rem' }}>
                   Does not include bill deposit, applied credits, lifeline/senior discounts, or LFT charges.
