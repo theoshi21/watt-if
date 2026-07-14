@@ -1,0 +1,499 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-8.3.4, pluggy-1.6.0
+rootdir: C:\Users\jacob\OneDrive\Desktop\WATT-IF
+configfile: pytest.ini
+plugins: anyio-4.14.0, hypothesis-6.155.6, html-4.1.1, metadata-3.1.1
+collected 11 items
+
+tests\selenium\test_system.py EEEEEEEEEss                                [100%]
+
+=================================== ERRORS ====================================
+_______________ ERROR at setup of test_SYS_01_dark_mode_toggle ________________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_______________ ERROR at setup of test_SYS_02_light_mode_toggle _______________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_____________ ERROR at setup of test_SYS_03_dark_mode_persistence _____________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+______________ ERROR at setup of test_SYS_04_sidebar_navigation _______________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_____________ ERROR at setup of test_SYS_05_active_link_indicator _____________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_____________ ERROR at setup of test_SYS_06_mobile_hamburger_menu _____________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_____________ ERROR at setup of test_SYS_07_mobile_overlay_close ______________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+______________ ERROR at setup of test_SYS_08_mobile_escape_close ______________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+_________ ERROR at setup of test_SYS_09_health_indicator_operational __________
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:204: in _new_conn
+    sock = connection.create_connection(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:788: in urlopen
+    response = self._make_request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:500: in request
+    self.endheaders()
+C:\Program Files\Python312\Lib\http\client.py:1331: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Program Files\Python312\Lib\http\client.py:1091: in _send_output
+    self.send(msg)
+C:\Program Files\Python312\Lib\http\client.py:1035: in send
+    self.connect()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:331: in connect
+    self.sock = self._new_conn()
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connection.py:219: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:667: in send
+    resp = conn.urlopen(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\connectionpool.py:842: in urlopen
+    retries = retries.increment(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\urllib3\util\retry.py:543: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+
+During handling of the above exception, another exception occurred:
+tests\selenium\conftest.py:329: in logged_in_driver
+    _register_via_api(api_url, email, password)
+tests\selenium\conftest.py:247: in _register_via_api
+    response = requests.post(
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+..\..\..\AppData\Roaming\Python\Python312\site-packages\requests\adapters.py:700: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /auth/register (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+- Generated html report: file:///C:/Users/jacob/OneDrive/Desktop/WATT-IF/reports/report.html -
+=========================== short test summary info ===========================
+ERROR tests/selenium/test_system.py::test_SYS_01_dark_mode_toggle - requests....
+ERROR tests/selenium/test_system.py::test_SYS_02_light_mode_toggle - requests...
+ERROR tests/selenium/test_system.py::test_SYS_03_dark_mode_persistence - requ...
+ERROR tests/selenium/test_system.py::test_SYS_04_sidebar_navigation - request...
+ERROR tests/selenium/test_system.py::test_SYS_05_active_link_indicator - requ...
+ERROR tests/selenium/test_system.py::test_SYS_06_mobile_hamburger_menu - requ...
+ERROR tests/selenium/test_system.py::test_SYS_07_mobile_overlay_close - reque...
+ERROR tests/selenium/test_system.py::test_SYS_08_mobile_escape_close - reques...
+ERROR tests/selenium/test_system.py::test_SYS_09_health_indicator_operational
+================== 2 skipped, 9 errors in 272.65s (0:04:32) ===================
