@@ -7,8 +7,10 @@ export default function AnomalyCard({ month, percentAbove }: AnomalyCardProps) {
   return (
     <div
       className="card"
+      role="alert"
       style={{
-        borderLeft: '4px solid var(--color-teal)',
+        borderLeft: '4px solid var(--color-red)',
+        background: 'var(--color-rating-poor-bg)',
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
@@ -19,7 +21,7 @@ export default function AnomalyCard({ month, percentAbove }: AnomalyCardProps) {
         height="20"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="var(--color-teal)"
+        stroke="var(--color-red)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -30,7 +32,7 @@ export default function AnomalyCard({ month, percentAbove }: AnomalyCardProps) {
         <line x1="12" y1="9" x2="12" y2="13" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
-      <p style={{ margin: 0, fontFamily: 'var(--font-sans)' }}>
+      <p style={{ margin: 0, fontFamily: 'var(--font-sans)', color: 'var(--color-rating-poor-text)' }}>
         <strong>Anomaly Detected:</strong> forecast consumption for{' '}
         <strong>{month}</strong> is <strong>{percentAbove.toFixed(1)}%</strong>{' '}
         above your average.
