@@ -976,6 +976,52 @@ async def get_data_entries(current_user: dict = Depends(get_current_user)) -> li
 
 
 # ---------------------------------------------------------------------------
+# GET /export-csv  — download user's bill records as CSV
+# ---------------------------------------------------------------------------
+
+@app.get("/export-csv")
+async def export_csv(current_user: dict = Depends(get_current_user)) -> Response:
+    """Export the authenticated user's monthly_bill_records as a downloadable CSV."""
+    import csv
+    import io
+
+    user_id = current_user["id"]
+    conn = _get_db_conn()
+    try:
+        rows = conn.execute(
+            "SELECT year_month, kwh, price, meralco_rate, avg_temperature, "
+            "avg_humidity, total_rainfall_mm, holiday_count, weekend_count, "
+            "hot_days_count, rainy_days_count, is_el_nino "
+            "FROM monthly_bill_records WHERE user_id = ? ORDER BY year_month",
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "year_month", "kwh", "price", "meralco_rate", "avg_temperature",
+        "avg_humidity", "total_rainfall_mm", "holiday_count", "weekend_count",
+        "hot_days_count", "rainy_days_count", "is_el_nino",
+    ])
+    for row in rows:
+        writer.writerow([
+            row["year_month"], row["kwh"], row["price"], row["meralco_rate"],
+            row["avg_temperature"], row["avg_humidity"], row["total_rainfall_mm"],
+            row["holiday_count"], row["weekend_count"], row["hot_days_count"],
+            row["rainy_days_count"], row["is_el_nino"],
+        ])
+
+    csv_content = output.getvalue()
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=wattif_bill_data.csv"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # POST /data-entries  (Req 4.3)
 # ---------------------------------------------------------------------------
 

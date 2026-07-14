@@ -511,9 +511,17 @@ export function DataEntryPage() {
               <span style={{ ...meta, marginLeft: '0.5rem', fontWeight: 400 }}>({rows.length} entries)</span>
             )}
           </h2>
-          <span style={meta}>
-            Columns marked <em>auto</em> are resolved from real data and cannot be edited here.
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {rows.length > 0 && (
+              <button className="btn-secondary" onClick={() => { import('../api/client').then(m => m.exportCsv()) }}
+                style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }}>
+                ↓ Export CSV
+              </button>
+            )}
+            <span style={meta}>
+              Columns marked <em>auto</em> are resolved from real data and cannot be edited here.
+            </span>
+          </div>
         </div>
 
         <div style={{ padding: '0 1.25rem' }}>

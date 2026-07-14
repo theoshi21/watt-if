@@ -156,6 +156,26 @@ export async function getModelInfo(): Promise<ModelInfoResponse> {
   return request<ModelInfoResponse>('/model-info')
 }
 
+/** GET /export-csv — download user's bill records as a CSV file */
+export async function exportCsv(): Promise<void> {
+  const token = localStorage.getItem('wattif_token')
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const res = await fetch(`${BASE_URL}/export-csv`, { headers })
+  if (!res.ok) {
+    handleUnauthorized(res.status)
+    throw new Error('Export failed.')
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'wattif_bill_data.csv'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 /** GET /status — check background training state */
 export async function getTrainingStatus(): Promise<{ status: string; error: string | null }> {
   return request<{ status: string; error: string | null }>('/status')
