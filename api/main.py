@@ -1121,10 +1121,12 @@ def _resolve_meralco_rate_for_month(year_month: str, conn: sqlite3.Connection, u
                 result = _get_rate()
 
         residential = result.get_type("Residential")
-        rate = residential.get_bracket_for_kwh(kwh).residential_rate_per_kwh
+        b = residential.get_bracket_for_kwh(kwh)
+        # Compute VAT-inclusive per-kWh rate (base + VAT, excl. fixed monthly charges)
+        rate = b.residential_rate_per_kwh + b.vat_generation + b.vat_transmission + b.vat_system_loss + b.vat_distribution + b.vat_supply_per_kwh + b.vat_metering_per_kwh
         if rate > 0:
             logger.info(
-                "Using scraped Meralco rate ₱%.4f/kWh for %s.", rate, year_month
+                "Using scraped Meralco rate ₱%.4f/kWh (VAT-inclusive) for %s.", rate, year_month
             )
             return rate
     except Exception as exc:

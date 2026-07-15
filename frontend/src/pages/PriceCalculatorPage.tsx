@@ -195,8 +195,19 @@ export default function PriceCalculatorPage() {
     const metKwh = b.metering_per_kwh             * kwh
     const metFix = b.metering_fixed_monthly
     const other  = b.other_charges_per_kwh         * kwh
-    const total  = gen + trans + sl + dist + supKwh + supFix + metKwh + metFix + other
-    return { gen, trans, sl, dist, supKwh, supFix, metKwh, metFix, other, total, effRate: total / kwh }
+    // VAT amounts
+    const vatGen    = b.vat_generation         * kwh
+    const vatTrans  = b.vat_transmission       * kwh
+    const vatSl     = b.vat_system_loss        * kwh
+    const vatDist   = b.vat_distribution       * kwh
+    const vatSupKwh = b.vat_supply_per_kwh     * kwh
+    const vatSupFix = b.vat_supply_fixed
+    const vatMetKwh = b.vat_metering_per_kwh   * kwh
+    const vatMetFix = b.vat_metering_fixed
+    const subtotal = gen + trans + sl + dist + supKwh + supFix + metKwh + metFix + other
+    const totalVat = vatGen + vatTrans + vatSl + vatDist + vatSupKwh + vatSupFix + vatMetKwh + vatMetFix
+    const total  = subtotal + totalVat
+    return { gen, trans, sl, dist, supKwh, supFix, metKwh, metFix, other, subtotal, vatGen, vatTrans, vatSl, vatDist, vatSupKwh, vatSupFix, vatMetKwh, vatMetFix, totalVat, total, effRate: total / kwh }
   })() : null
 
   return (
@@ -330,20 +341,42 @@ export default function PriceCalculatorPage() {
               Charges for this billing period
             </h2>
             <p style={{ ...meta, margin: '0 0 0.75rem' }}>
-              {selectedType.type_label} · {bracket?.bracket_label} bracket · VAT-inclusive
+              {selectedType.type_label} · {bracket?.bracket_label} bracket
             </p>
 
             {lines && bracket ? (
               <div>
-                <BillLine label="Generation"       sublabel={`₱${bracket.generation_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 9.22% VAT`}   amount={lines.gen}    pct={lines.gen / lines.total * 100} />
-                <BillLine label="Transmission"     sublabel={`₱${bracket.transmission_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 11.14% VAT`} amount={lines.trans}  pct={lines.trans / lines.total * 100} />
-                <BillLine label="System Loss"      sublabel={`₱${bracket.system_loss_per_kwh.toFixed(4)} × ${kwh} kWh · 9.46% VAT`}          amount={lines.sl}     pct={lines.sl / lines.total * 100} />
-                <BillLine label="Distribution"     sublabel={`₱${bracket.distribution_charge_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}    amount={lines.dist}   pct={lines.dist / lines.total * 100} />
-                <BillLine label="Supply"           sublabel={`₱${bracket.supply_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}                 amount={lines.supKwh} pct={lines.supKwh / lines.total * 100} />
-                <BillLine label="Supply (fixed)"   sublabel={`₱${bracket.supply_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                      amount={lines.supFix} pct={lines.supFix / lines.total * 100} />
-                <BillLine label="Metering"         sublabel={`₱${bracket.metering_per_kwh.toFixed(4)} × ${kwh} kWh · 12% VAT`}               amount={lines.metKwh} pct={lines.metKwh / lines.total * 100} />
-                <BillLine label="Metering (fixed)" sublabel={`₱${bracket.metering_fixed_monthly.toFixed(4)}/mo · 12% VAT`}                   amount={lines.metFix} pct={lines.metFix / lines.total * 100} />
+                <BillLine label="Generation"       sublabel={`₱${bracket.generation_charge_per_kwh.toFixed(4)} × ${kwh} kWh`}   amount={lines.gen}    pct={lines.gen / lines.total * 100} />
+                <BillLine label="Transmission"     sublabel={`₱${bracket.transmission_charge_per_kwh.toFixed(4)} × ${kwh} kWh`} amount={lines.trans}  pct={lines.trans / lines.total * 100} />
+                <BillLine label="System Loss"      sublabel={`₱${bracket.system_loss_per_kwh.toFixed(4)} × ${kwh} kWh`}          amount={lines.sl}     pct={lines.sl / lines.total * 100} />
+                <BillLine label="Distribution"     sublabel={`₱${bracket.distribution_charge_per_kwh.toFixed(4)} × ${kwh} kWh`}    amount={lines.dist}   pct={lines.dist / lines.total * 100} />
+                <BillLine label="Supply"           sublabel={`₱${bracket.supply_per_kwh.toFixed(4)} × ${kwh} kWh`}                 amount={lines.supKwh} pct={lines.supKwh / lines.total * 100} />
+                <BillLine label="Supply (fixed)"   sublabel={`₱${bracket.supply_fixed_monthly.toFixed(4)}/mo`}                      amount={lines.supFix} pct={lines.supFix / lines.total * 100} />
+                <BillLine label="Metering"         sublabel={`₱${bracket.metering_per_kwh.toFixed(4)} × ${kwh} kWh`}               amount={lines.metKwh} pct={lines.metKwh / lines.total * 100} />
+                <BillLine label="Metering (fixed)" sublabel={`₱${bracket.metering_fixed_monthly.toFixed(4)}/mo`}                   amount={lines.metFix} pct={lines.metFix / lines.total * 100} />
                 <BillLine label="UC / FIT / GEA / AWAT / Other" sublabel={`₱${bracket.other_charges_per_kwh.toFixed(4)} × ${kwh} kWh · VAT-exempt`} amount={lines.other} dim={lines.other < 0} pct={lines.other / lines.total * 100} />
+                <BillLine label="Subtotal (before VAT)" amount={lines.subtotal} bold separator />
+
+                {/* VAT Section — separate card-like container */}
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '0.875rem 1rem',
+                  background: 'var(--color-input-fill)',
+                  borderRadius: '0.375rem',
+                  border: '1px solid var(--color-border)',
+                }}>
+                  <h3 style={{ margin: '0 0 0.4rem', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                    Value-Added Tax (VAT)
+                  </h3>
+                  <BillLine label="Generation VAT"     sublabel={`9.22% of ₱${lines.gen.toFixed(2)}`}    amount={lines.vatGen}    pct={lines.vatGen / lines.total * 100} />
+                  <BillLine label="Transmission VAT"   sublabel={`11.14% of ₱${lines.trans.toFixed(2)}`} amount={lines.vatTrans}  pct={lines.vatTrans / lines.total * 100} />
+                  <BillLine label="System Loss VAT"    sublabel={`9.46% of ₱${lines.sl.toFixed(2)}`}     amount={lines.vatSl}     pct={lines.vatSl / lines.total * 100} />
+                  <BillLine label="Distribution VAT"   sublabel={`12% of ₱${lines.dist.toFixed(2)}`}     amount={lines.vatDist}   pct={lines.vatDist / lines.total * 100} />
+                  <BillLine label="Supply VAT"         sublabel={`12% of ₱${(lines.supKwh + lines.supFix).toFixed(2)}`} amount={lines.vatSupKwh + lines.vatSupFix} pct={(lines.vatSupKwh + lines.vatSupFix) / lines.total * 100} />
+                  <BillLine label="Metering VAT"       sublabel={`12% of ₱${(lines.metKwh + lines.metFix).toFixed(2)}`} amount={lines.vatMetKwh + lines.vatMetFix} pct={(lines.vatMetKwh + lines.vatMetFix) / lines.total * 100} />
+                  <BillLine label="Total VAT" amount={lines.totalVat} bold separator />
+                </div>
+
                 <BillLine label="Total Amount Due" amount={lines.total} bold separator />
                 <p style={{ ...meta, marginTop: '0.75rem' }}>
                   Does not include bill deposit, applied credits, lifeline/senior discounts, or LFT charges.
