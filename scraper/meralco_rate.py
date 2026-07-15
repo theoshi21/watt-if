@@ -83,19 +83,32 @@ _CUSTOMER_TYPES = [
 
 @dataclass
 class RateBracket:
-    """VAT-inclusive rates for one consumption bracket within a customer type."""
+    """Rates for one consumption bracket within a customer type.
+
+    Base charges are VAT-exclusive (matching the PDF / Meralco website).
+    VAT amounts are provided separately for transparency.
+    """
     bracket_key: str
     bracket_label: str
-    generation_charge_per_kwh: float
-    transmission_charge_per_kwh: float
-    system_loss_per_kwh: float
-    distribution_charge_per_kwh: float
-    supply_per_kwh: float
-    supply_fixed_monthly: float
-    metering_per_kwh: float
-    metering_fixed_monthly: float
-    other_charges_per_kwh: float
-    residential_rate_per_kwh: float  # per-kWh sum excl. fixed monthly
+    generation_charge_per_kwh: float       # VAT-exclusive
+    transmission_charge_per_kwh: float     # VAT-exclusive
+    system_loss_per_kwh: float             # VAT-exclusive
+    distribution_charge_per_kwh: float     # VAT-exclusive
+    supply_per_kwh: float                  # VAT-exclusive
+    supply_fixed_monthly: float            # VAT-exclusive
+    metering_per_kwh: float                # VAT-exclusive
+    metering_fixed_monthly: float          # VAT-exclusive
+    other_charges_per_kwh: float           # VAT-exempt (no VAT applied)
+    residential_rate_per_kwh: float        # per-kWh sum excl. fixed monthly (VAT-exclusive)
+    # Separate VAT amounts
+    vat_generation: float                  # VAT amount on generation
+    vat_transmission: float                # VAT amount on transmission
+    vat_system_loss: float                 # VAT amount on system loss
+    vat_distribution: float                # VAT amount on distribution
+    vat_supply_per_kwh: float              # VAT amount on supply (per kWh)
+    vat_supply_fixed: float                # VAT amount on supply (fixed monthly)
+    vat_metering_per_kwh: float            # VAT amount on metering (per kWh)
+    vat_metering_fixed: float              # VAT amount on metering (fixed monthly)
 
 
 @dataclass
@@ -188,7 +201,7 @@ def _parse_amount(value: Optional[str]) -> Optional[float]:
 
 
 def _row_to_bracket(row: list, bracket_key: str, bracket_label: str) -> RateBracket:
-    """Parse one PDF table row into a VAT-adjusted RateBracket."""
+    """Parse one PDF table row into a RateBracket with base (VAT-exclusive) charges and separate VAT."""
 
     def get(col: int) -> float:
         v = _parse_amount(row[col] if col < len(row) else None)
@@ -210,31 +223,42 @@ def _row_to_bracket(row: list, bracket_key: str, bracket_label: str) -> RateBrac
         if (v := _parse_amount(row[col] if col < len(row) else None)) is not None
     )
 
-    gen_vat     = round(gen     * (1 + _VAT["generation"]),   4)
-    trans_vat   = round(trans   * (1 + _VAT["transmission"]), 4)
-    sl_vat      = round(sl      * (1 + _VAT["system_loss"]),  4)
-    dist_vat    = round(dist    * (1 + _VAT["other"]),        4)
-    sup_kwh_vat = round(sup_kwh * (1 + _VAT["other"]),        4)
-    sup_fix_vat = round(sup_fix * (1 + _VAT["other"]),        4)
-    met_kwh_vat = round(met_kwh * (1 + _VAT["other"]),        4)
-    met_fix_vat = round(met_fix * (1 + _VAT["other"]),        4)
+    # Compute VAT amounts separately
+    vat_gen     = round(gen     * _VAT["generation"],   4)
+    vat_trans   = round(trans   * _VAT["transmission"], 4)
+    vat_sl      = round(sl      * _VAT["system_loss"],  4)
+    vat_dist    = round(dist    * _VAT["other"],        4)
+    vat_sup_kwh = round(sup_kwh * _VAT["other"],        4)
+    vat_sup_fix = round(sup_fix * _VAT["other"],        4)
+    vat_met_kwh = round(met_kwh * _VAT["other"],        4)
+    vat_met_fix = round(met_fix * _VAT["other"],        4)
+
     other_r     = round(other, 4)
 
-    approx = round(gen_vat + trans_vat + sl_vat + dist_vat + sup_kwh_vat + met_kwh_vat + other_r, 4)
+    # Base rate sum (VAT-exclusive, per-kWh only, excl. fixed monthly)
+    approx = round(gen + trans + sl + dist + sup_kwh + met_kwh + other_r, 4)
 
     return RateBracket(
         bracket_key=bracket_key,
         bracket_label=bracket_label,
-        generation_charge_per_kwh=gen_vat,
-        transmission_charge_per_kwh=trans_vat,
-        system_loss_per_kwh=sl_vat,
-        distribution_charge_per_kwh=dist_vat,
-        supply_per_kwh=sup_kwh_vat,
-        supply_fixed_monthly=sup_fix_vat,
-        metering_per_kwh=met_kwh_vat,
-        metering_fixed_monthly=met_fix_vat,
+        generation_charge_per_kwh=round(gen, 4),
+        transmission_charge_per_kwh=round(trans, 4),
+        system_loss_per_kwh=round(sl, 4),
+        distribution_charge_per_kwh=round(dist, 4),
+        supply_per_kwh=round(sup_kwh, 4),
+        supply_fixed_monthly=round(sup_fix, 4),
+        metering_per_kwh=round(met_kwh, 4),
+        metering_fixed_monthly=round(met_fix, 4),
         other_charges_per_kwh=other_r,
         residential_rate_per_kwh=approx,
+        vat_generation=vat_gen,
+        vat_transmission=vat_trans,
+        vat_system_loss=vat_sl,
+        vat_distribution=vat_dist,
+        vat_supply_per_kwh=vat_sup_kwh,
+        vat_supply_fixed=vat_sup_fix,
+        vat_metering_per_kwh=vat_met_kwh,
+        vat_metering_fixed=vat_met_fix,
     )
 
 
@@ -307,26 +331,46 @@ def _fetch_and_parse(year: int, month: int) -> Optional[MeralcoRateResult]:
 # ---------------------------------------------------------------------------
 
 def _make_bracket(key: str, label: str, dist: float, sup_fix: float = 18.3456, met_fix: float = 5.6) -> RateBracket:
-    gen_vat   = 9.9067
-    trans_vat = 1.3947
-    sl_vat    = 0.9107
-    dist_vat  = round(dist * (1 + _VAT["other"]), 4)
-    sup_vat   = 0.5576
-    met_vat   = 0.3752
-    other_r   = 0.109
-    approx    = round(gen_vat + trans_vat + sl_vat + dist_vat + sup_vat + met_vat + other_r, 4)
+    # Base rates (VAT-exclusive, matching PDF/website values)
+    gen   = 9.0704
+    trans = 1.2537
+    sl    = 0.8320
+    sup   = 0.4979
+    met   = 0.3350
+    other_r = 0.109
+
+    # Compute VAT amounts
+    vat_gen   = round(gen   * _VAT["generation"],   4)
+    vat_trans = round(trans * _VAT["transmission"], 4)
+    vat_sl    = round(sl    * _VAT["system_loss"],  4)
+    vat_dist  = round(dist  * _VAT["other"],        4)
+    vat_sup   = round(sup   * _VAT["other"],        4)
+    vat_sup_f = round(sup_fix * _VAT["other"],      4)
+    vat_met   = round(met   * _VAT["other"],        4)
+    vat_met_f = round(met_fix * _VAT["other"],      4)
+
+    approx = round(gen + trans + sl + dist + sup + met + other_r, 4)
+
     return RateBracket(
         bracket_key=key, bracket_label=label,
-        generation_charge_per_kwh=gen_vat,
-        transmission_charge_per_kwh=trans_vat,
-        system_loss_per_kwh=sl_vat,
-        distribution_charge_per_kwh=dist_vat,
-        supply_per_kwh=sup_vat,
+        generation_charge_per_kwh=gen,
+        transmission_charge_per_kwh=trans,
+        system_loss_per_kwh=sl,
+        distribution_charge_per_kwh=dist,
+        supply_per_kwh=sup,
         supply_fixed_monthly=sup_fix,
-        metering_per_kwh=met_vat,
+        metering_per_kwh=met,
         metering_fixed_monthly=met_fix,
         other_charges_per_kwh=other_r,
         residential_rate_per_kwh=approx,
+        vat_generation=vat_gen,
+        vat_transmission=vat_trans,
+        vat_system_loss=vat_sl,
+        vat_distribution=vat_dist,
+        vat_supply_per_kwh=vat_sup,
+        vat_supply_fixed=vat_sup_f,
+        vat_metering_per_kwh=vat_met,
+        vat_metering_fixed=vat_met_f,
     )
 
 

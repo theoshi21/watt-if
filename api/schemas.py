@@ -165,6 +165,15 @@ class RateBracketResponse(BaseModel):
     metering_fixed_monthly: float
     other_charges_per_kwh: float
     residential_rate_per_kwh: float
+    # Separate VAT amounts per kWh
+    vat_generation: float
+    vat_transmission: float
+    vat_system_loss: float
+    vat_distribution: float
+    vat_supply_per_kwh: float
+    vat_supply_fixed: float
+    vat_metering_per_kwh: float
+    vat_metering_fixed: float
 
 
 class CustomerTypeResponse(BaseModel):

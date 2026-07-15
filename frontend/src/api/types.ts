@@ -132,6 +132,15 @@ export interface RateBracket {
   metering_fixed_monthly: number;
   other_charges_per_kwh: number;
   residential_rate_per_kwh: number;
+  // Separate VAT amounts
+  vat_generation: number;
+  vat_transmission: number;
+  vat_system_loss: number;
+  vat_distribution: number;
+  vat_supply_per_kwh: number;
+  vat_supply_fixed: number;
+  vat_metering_per_kwh: number;
+  vat_metering_fixed: number;
 }
 
 export interface CustomerType {
